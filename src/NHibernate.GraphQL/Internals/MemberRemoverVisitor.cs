@@ -6,11 +6,11 @@ using NHibernate.Mapping.ByCode;
 
 namespace NHibernate.GraphQL
 {
-    internal class MemberRemoverModifier : ExpressionVisitor  
+    internal class MemberRemoverVisitor : ExpressionVisitor  
     {
         private readonly HashSet<MemberInfo> _keepMembers;
 
-        public MemberRemoverModifier(IEnumerable<MemberInfo> keepMembers)
+        public MemberRemoverVisitor(IEnumerable<MemberInfo> keepMembers)
         {
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
             _keepMembers = new HashSet<MemberInfo>(keepMembers);

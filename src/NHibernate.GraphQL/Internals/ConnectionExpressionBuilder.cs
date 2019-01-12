@@ -79,11 +79,11 @@ namespace NHibernate.GraphQL
             Expression<Func<TOrder, TOrder, bool>> filter,
             TOrder value)
         {
-            var expression = new RemapParameters(
+            var expression = new RemapParametersVisitor(
                 filter.Parameters[0],
                 mainMember,
                 mappingExpression).RemapParmeters(filter.Body);
-            return new ParameterChanger(
+            return new ParameterVisitor(
                 filter.Parameters[1],
                 Expression.Constant(value)).ChangeParameter(expression);
         }

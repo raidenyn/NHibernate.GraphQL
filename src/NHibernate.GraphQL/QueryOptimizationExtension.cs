@@ -23,7 +23,7 @@ namespace NHibernate.GraphQL
             if (query == null) throw new ArgumentNullException(nameof(query));
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
 
-            Expression expression = new MemberRemoverModifier(keepMembers).RemoveFields(query.Expression);
+            Expression expression = new MemberRemoverVisitor(keepMembers).RemoveFields(query.Expression);
 
             return query.Provider.CreateQuery<TResult>(expression);
         }
