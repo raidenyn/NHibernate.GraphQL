@@ -28,7 +28,7 @@ namespace NHibernate.GraphQL.Tests
         {
             public int? First { get; set; }
 
-            public string After { get; set; }
+            public Cursor After { get; set; }
         }
 
         class OrderStructure : IComparable<OrderStructure>
