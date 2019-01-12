@@ -16,65 +16,17 @@ namespace NHibernate.GraphQL
             Expression<Func<TDbObject, TResult>> select,
             ICursorRequest request)
         {
-            ParameterExpression pe = Expression.Parameter(typeof(TDbObject), "dbItem");
-            var newOrderedItem = Expression.New(typeof(OrderedItem<TResult, TOrder>));
+            var builder = new ConnectionExpressionBuilder<TResult, TDbObject, TOrder>();
 
-            MemberInfo orderMember = typeof(OrderedItem<TResult, TOrder>).GetMember(nameof(OrderedItem<TResult, TOrder>.Order))[0];
-            MemberInfo valueMember = typeof(OrderedItem<TResult, TOrder>).GetMember(nameof(OrderedItem<TResult, TOrder>.Value))[0];
-
-            MemberBinding orderBinding = Expression.Bind(
-                orderMember,
-                new ParameterReplacer(pe).RepalceParameter(orderBy.Body));
-            MemberBinding resultBinding = Expression.Bind(
-                valueMember,
-                new ParameterReplacer(pe).RepalceParameter(select.Body));
-
-            MemberInitExpression orderedItemInit = Expression.MemberInit(
-                newOrderedItem,
-                orderBinding,
-                resultBinding);
-
-            Expression<Func<TDbObject, OrderedItem<TResult, TOrder>>> newSelect
-                = Expression.Lambda<Func<TDbObject, OrderedItem<TResult, TOrder>>>(orderedItemInit, new ParameterExpression[] { pe });
-
-            Expression queryExpression = query.Expression;
-
-            if (!String.IsNullOrWhiteSpace(request.After))
-            {
-                TOrder order = JsonConvert.DeserializeObject<TOrder>(request.After);
-
-                queryExpression = Expression.Call(
-                    typeof(Queryable),
-                    nameof(Queryable.Where),
-                    new System.Type[] { typeof(TDbObject) },
-                    queryExpression,
-                    Expression.Lambda<Func<TDbObject, bool>>(RemapFilter(orderedItemInit, orderMember, filter, order), pe)
-                    );
-            }
-
-            queryExpression = Expression.Call(
-                typeof(Queryable),
-                nameof(Queryable.OrderBy),
-                new System.Type[] { typeof(TDbObject), typeof(TOrder) },
-                queryExpression,
-                new ParameterReplacer(pe).RepalceParameter(orderBy));
-
-            queryExpression = Expression.Call(
-                typeof(Queryable),
-                nameof(Queryable.Select),
-                new System.Type[] { typeof(TDbObject), typeof(OrderedItem<TResult, TOrder>) },
-                queryExpression,
-                newSelect);
-
-            var orderedValueQuery = query.Provider.CreateQuery<OrderedItem<TResult, TOrder>>(queryExpression);
+            var orderedValueQuery = builder.Build(query, orderBy, filter, select, request.After);
 
             if (request.First > 0) {
                 orderedValueQuery = orderedValueQuery.Take(request.First.Value);
             }
 
-            var (edges, hasNext) = GetEdges(orderedValueQuery, request.First);
+            var (edges, hasNext) = builder.GetEdges(orderedValueQuery, request.First);
 
-            var any = edges.Count > 0;
+            bool any = edges.Count > 0;
 
             return new Connection<TResult>
             {
@@ -90,13 +42,82 @@ namespace NHibernate.GraphQL
             };
         }
 
-        private static Expression RemapFilter<TOrder>(
+    }
+
+    class ConnectionExpressionBuilder<TResult, TDbObject, TOrder>
+    {
+        private static readonly MemberInfo OrderMember = typeof(OrderedItem).GetMember(nameof(OrderedItem.Order))[0];
+        private static readonly MemberInfo ValueMember = typeof(OrderedItem).GetMember(nameof(OrderedItem.Value))[0];
+
+        private static readonly ParameterExpression DbItem = Expression.Parameter(typeof(TDbObject), "dbItem");
+
+        private static readonly ParameterReplacer ParameterReplacer = new ParameterReplacer(DbItem);
+
+        public IQueryable<OrderedItem> Build(
+            IQueryable<TDbObject> query,
+            Expression<Func<TDbObject, TOrder>> orderBy,
+            Expression<Func<TOrder, TOrder, bool>> filter,
+            Expression<Func<TDbObject, TResult>> select,
+            string after)
+        {
+            MemberInitExpression orderedItemInit = Expression.MemberInit(
+                Expression.New(typeof(OrderedItem)),
+                Expression.Bind(OrderMember, ParameterReplacer.RepalceParameter(orderBy.Body)),
+                Expression.Bind(ValueMember, ParameterReplacer.RepalceParameter(select.Body)));
+
+            Expression queryExpression = query.Expression;
+
+            if (!String.IsNullOrWhiteSpace(after))
+            {
+                TOrder order = JsonConvert.DeserializeObject<TOrder>(after);
+
+                // add where filtration
+                queryExpression = Expression.Call(
+                    typeof(Queryable),
+                    nameof(Queryable.Where),
+                    new System.Type[] { typeof(TDbObject) },
+                    queryExpression,
+                    Expression.Lambda<Func<TDbObject, bool>>(RemapFilter(orderedItemInit, OrderMember, filter, order), DbItem)
+                    );
+            }
+
+            // add passed order
+            queryExpression = Expression.Call(
+                typeof(Queryable),
+                nameof(Queryable.OrderBy),
+                new System.Type[] { typeof(TDbObject), typeof(TOrder) },
+                queryExpression,
+                ParameterReplacer.RepalceParameter(orderBy));
+
+            // extend selection and add order fields
+            queryExpression = Expression.Call(
+                typeof(Queryable),
+                nameof(Queryable.Select),
+                new System.Type[] { typeof(TDbObject), typeof(OrderedItem) },
+                queryExpression,
+                Expression.Lambda<Func<TDbObject, OrderedItem>>(orderedItemInit, DbItem));
+
+            return query.Provider.CreateQuery<OrderedItem>(queryExpression);
+        }
+
+        public (List<Edge<TResult>> Edges, bool HasNext) GetEdges(IQueryable<OrderedItem> result, int? size)
+        {
+            if (size == null)
+            {
+                return (Edges: result.Select(GetEdge).ToList(), HasNext: false);
+            }
+
+            return GetEdgesList(result, size.Value);
+        }
+
+        private static Expression RemapFilter(
             Expression mappingExpression,
             MemberInfo mainMember,
             Expression<Func<TOrder, TOrder, bool>> filter,
             TOrder value)
         {
-            var expression = new RemapParameters(filter.Parameters[0],
+            var expression = new RemapParameters(
+                filter.Parameters[0],
                 mainMember,
                 mappingExpression).RemapParmeters(filter.Body);
             return new ParameterChanger(
@@ -104,24 +125,15 @@ namespace NHibernate.GraphQL
                 Expression.Constant(value)).ChangeParameter(expression);
         }
 
-        private static (List<Edge<TResult>> Edges, bool HasNext) GetEdges<TResult, TOrder>(IQueryable<OrderedItem<TResult, TOrder>> result, int? size)
-        {
-            if (size == null)
-            {
-                return (Edges: result.Select(GetEdge).ToList(), HasNext: false);
-            }
-
-            return GetEdges(result.AsEnumerable(), size.Value);
-        }
-
-        private static (List<Edge<TResult>> Edges, bool HasNext) GetEdges<TResult, TOrder>(IEnumerable<OrderedItem<TResult, TOrder>> result, int size)
+        private static (List<Edge<TResult>> Edges, bool HasNext) GetEdgesList(
+            IEnumerable<OrderedItem> result, int size)
         {
             var list = new List<Edge<TResult>>(capacity: size);
             int counter = size;
 
             var iterator = result.GetEnumerator();
 
-            while(counter > 0 && iterator.MoveNext())
+            while (counter > 0 && iterator.MoveNext())
             {
                 list.Add(GetEdge(iterator.Current));
                 counter--;
@@ -130,7 +142,7 @@ namespace NHibernate.GraphQL
             return (list, iterator.MoveNext());
         }
 
-        private static Edge<TResult> GetEdge<TResult, TOrder>(OrderedItem<TResult, TOrder> item)
+        private static Edge<TResult> GetEdge(OrderedItem item)
         {
             return new Edge<TResult>
             {
@@ -139,7 +151,7 @@ namespace NHibernate.GraphQL
             };
         }
 
-        class OrderedItem<TResult, TOrder>
+        internal class OrderedItem
         {
             public TResult Value { get; set; }
 
