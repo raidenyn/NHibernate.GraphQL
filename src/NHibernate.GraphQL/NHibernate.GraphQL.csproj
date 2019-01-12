@@ -7,6 +7,16 @@
   <PropertyGroup>
     <DocumentationFile>$(OutDir)\NHibernate.GraphQL.xml</DocumentationFile>
     <LangVersion>latest</LangVersion>
+    <Version>0.0.1</Version>
+    <Authors>Yuriy Nagaev</Authors>
+    <Description>Tooles for creating GraphQL API with NHibernate datasource</Description>
+    <Copyright>Yuriy Nagaev</Copyright>
+    <PackageLicenseUrl>https://github.com/raidenyn/NHibernate.GraphQL/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/raidenyn/NHibernate.GraphQL</PackageProjectUrl>
+    <PackageIconUrl>https://secure.gravatar.com/avatar/f2e6376e8ce9e59d17743a3a2f63bd92</PackageIconUrl>
+    <RepositoryUrl>https://github.com/raidenyn/NHibernate.GraphQL</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>NHibernate, GraphQL</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
