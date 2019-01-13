@@ -18,7 +18,7 @@ namespace NHibernate.GraphQL
 
         public Expression RemoveFields(Expression expression)  
         {  
-            return Visit(expression);  
+            return Visit(expression);
         }
 
         protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)

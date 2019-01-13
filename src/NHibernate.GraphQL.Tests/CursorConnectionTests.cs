@@ -37,6 +37,9 @@ namespace NHibernate.GraphQL.Tests
 
             public int O2 { get; set; }
 
+            /// <summary>
+            /// We have to make it comparable to sort the objects in Linq queries
+            /// </summary>
             public int CompareTo(OrderStructure other)
             {
                 return other.O1.CompareTo(other.O1) + other.O2.CompareTo(other.O2);
@@ -88,7 +91,7 @@ namespace NHibernate.GraphQL.Tests
                 new Request
                 {
                     First = 2,
-                    After = "'1'"
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format("1")
                 });
 
             Assert.AreEqual(2, connection.Edges.Count);
@@ -139,7 +142,10 @@ namespace NHibernate.GraphQL.Tests
                 new Request
                 {
                     First = 2,
-                    After = "{'O1':'1', 'O2': 1}"
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(new {
+                        O1 = "1",
+                        O2 = 1
+                    })
                 }); 
 
             Assert.AreEqual(2, connection.Edges.Count);

@@ -15,13 +15,19 @@ namespace NHibernate.GraphQL
         private static readonly ParameterExpression DbItem = Expression.Parameter(typeof(TDbObject), "dbItem");
 
         private static readonly ParameterReplacer ParameterReplacer = new ParameterReplacer(DbItem);
+        private readonly ICursorFormatter _cursorFormatter;
 
-        public IQueryable<OrderedItem> Build(
+        public ConnectionExpressionBuilder(ICursorFormatter cursorFormatter)
+        {
+            _cursorFormatter = cursorFormatter ?? throw new ArgumentNullException(nameof(cursorFormatter));
+        }
+
+        public IQueryable<OrderedItem> BuildAfterQuery(
             IQueryable<TDbObject> query,
             Expression<Func<TDbObject, TOrder>> orderBy,
             Expression<Func<TOrder, TOrder, bool>> filter,
             Expression<Func<TDbObject, TResult>> select,
-            string after)
+            Cursor after)
         {
             MemberInitExpression orderedItemInit = Expression.MemberInit(
                 Expression.New(typeof(OrderedItem)),
@@ -30,9 +36,9 @@ namespace NHibernate.GraphQL
 
             Expression queryExpression = query.Expression;
 
-            if (!String.IsNullOrWhiteSpace(after))
+            if (_cursorFormatter.HasValue(after))
             {
-                TOrder order = JsonConvert.DeserializeObject<TOrder>(after);
+                TOrder order = _cursorFormatter.ParseAs<TOrder>(after);
 
                 // add where filtration
                 queryExpression = Expression.Call(
@@ -63,7 +69,18 @@ namespace NHibernate.GraphQL
             return query.Provider.CreateQuery<OrderedItem>(queryExpression);
         }
 
-        public EdgesList<TResult> GetEdges(IQueryable<OrderedItem> result, int? size)
+        public IQueryable<OrderedItem> LimitSizeQuery(
+            IQueryable<OrderedItem> query,
+            int? size)
+        {
+            if (size > 0)
+            {
+                query = query.Take(size.Value);
+            }
+            return query;
+        }
+
+        public EdgesList<TResult> GetEdges(IEnumerable<OrderedItem> result, int? size)
         {
             if (size == null)
             {
@@ -88,7 +105,7 @@ namespace NHibernate.GraphQL
                 Expression.Constant(value)).ChangeParameter(expression);
         }
 
-        private static EdgesList<TResult> GetEdgesList(
+        private EdgesList<TResult> GetEdgesList(
             IEnumerable<OrderedItem> result, int size)
         {
             var list = new List<Edge<TResult>>(capacity: size);
@@ -105,11 +122,11 @@ namespace NHibernate.GraphQL
             return new EdgesList<TResult>(list, iterator.MoveNext());
         }
 
-        private static Edge<TResult> GetEdge(OrderedItem item)
+        private Edge<TResult> GetEdge(OrderedItem item)
         {
             return new Edge<TResult>
             {
-                Cursor = item.Order?.ToString(),
+                Cursor = _cursorFormatter.Format(item.Order),
                 Node = item.Value
             };
         }
