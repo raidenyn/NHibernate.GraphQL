@@ -1,7 +1,7 @@
 # Tools for GraphQL API implementation based on NHibernate
 
 ## Select data optimization
-GraphQL allows optimize amount of data sending between server and client sides, but it would be also great to optimize traffic between application and database level also.
+GraphQL allows optimize amount of data sending between server and client sides, but it would be also great to optimize traffic between application and database also.
 
 Method `OptimizeQuery` keeps only explicitly requested fields in LINQ query:
 
@@ -34,7 +34,7 @@ GraphQL [suggests](https://graphql.org/learn/pagination/) to use Relay style pag
 
 `ToConnection` and `ToConnectionAsync` methods allow create the connection easily based on your LINQ query.
 
-```
+``` cs
 var query = session.Query<User>()
                    .Where(user => Email.Contains("@gmail.com"));
 
