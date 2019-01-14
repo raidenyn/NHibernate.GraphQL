@@ -6,7 +6,7 @@ namespace NHibernate.GraphQL
 {
     internal class RemapParametersVisitor : ExpressionVisitor
     {
-        private readonly Dictionary<MemberInfo, Expression> _memberExpressionMapping;
+        private readonly IReadOnlyDictionary<MemberInfo, Expression> _memberExpressionMapping;
         private readonly ParameterExpression _parameter;
         private readonly MemberInfo _mainMember;
 
@@ -15,7 +15,7 @@ namespace NHibernate.GraphQL
             MemberInfo mainMember,
             Expression mapingExpression)
         {
-            _memberExpressionMapping = new MappingVisitor(mapingExpression).GetMapping();
+            _memberExpressionMapping = new FilteringMappingVisitor(mapingExpression).GetMappingDictionary();
             _parameter = parameter;
             _mainMember = mainMember;
         }

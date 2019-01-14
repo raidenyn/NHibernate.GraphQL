@@ -39,7 +39,7 @@ namespace NHibernate.GraphQL
 
             var connectionQuery = builder.BuildAfterQuery(query, orderBy, filter, select, request.After);
 
-            connectionQuery = builder.LimitSizeQuery(connectionQuery, request.First);
+            connectionQuery = builder.LimitSizePlusOneQuery(connectionQuery, request.First);
 
             var totalCount = query.ToFutureValue(items => items.Count());
             var connectionItems = connectionQuery.ToFuture().GetEnumerable();
@@ -79,7 +79,7 @@ namespace NHibernate.GraphQL
 
             var connectionQuery = builder.BuildAfterQuery(query, orderBy, filter, select, request.After);
 
-            connectionQuery = builder.LimitSizeQuery(connectionQuery, request.First);
+            connectionQuery = builder.LimitSizePlusOneQuery(connectionQuery, request.First);
 
             var totalCount = query.ToFutureValue(items => items.Count());
             var connectionItems = await connectionQuery.ToFuture().GetEnumerableAsync(cancellationToken).ConfigureAwait(false);

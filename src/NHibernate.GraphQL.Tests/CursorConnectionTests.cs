@@ -1,27 +1,22 @@
 ﻿using System;
 using System.Linq;
+using NHibernate.GraphQL.Tests.Dto;
+using NHibernate.GraphQL.Tests.TestData;
 using NUnit.Framework;
 
 namespace NHibernate.GraphQL.Tests
 {
-    public class CursorConnectionTests
+    public class CursorConnectionTests: DatabaseFixture
     {
-        class SourceItem
+        class ExposedUser
         {
-            public string SourceFirst { get; set; }
+            public string Login { get; set; }
 
-            public int SourceSecond { get; set; }
+            public string Name { get; set; }
 
-            public bool SourceThird { get; set; }
-        }
+            public string FirstName { get; set; }
 
-        class TargetItem
-        {
-            public string TargetFirst { get; set; }
-
-            public int TargetSecond { get; set; }
-
-            public bool TargetThird { get; set; }
+            public string Email { get; set; }
         }
 
         class Request : ICursorRequest
@@ -31,124 +26,196 @@ namespace NHibernate.GraphQL.Tests
             public Cursor After { get; set; }
         }
 
-        class OrderStructure : IComparable<OrderStructure>
+        private IQueryable<User> GetUserQuery()
         {
-            public string O1 { get; set; }
+            var session = CreateSession();
 
-            public int O2 { get; set; }
+            new UsersSet().CreateData(session);
 
-            /// <summary>
-            /// We have to make it comparable to sort the objects in Linq queries
-            /// </summary>
-            public int CompareTo(OrderStructure other)
-            {
-                return other.O1.CompareTo(other.O1) + other.O2.CompareTo(other.O2);
-            }
+            return session.Query<User>();
         }
 
         [Test]
-        public void ShouldPageQueryFields()
+        public void ShouldPageQueryWithSimpleOrder()
         {
-            var data = new[]
-            {
-                new SourceItem
+            var connection = GetUserQuery().ToConnection(
+                user => user.Id,
+                (userId, after) => userId > after,
+                user => new ExposedUser
                 {
-                    SourceFirst = "1",
-                    SourceSecond = 1,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "2",
-                    SourceSecond = 2,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "3",
-                    SourceSecond = 3,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "4",
-                    SourceSecond = 4,
-                    SourceThird = true
-                }
-            };
-
-            IQueryable<SourceItem> query = data.AsQueryable();
-
-            var connection = query.ToConnection(
-                item => item.SourceFirst,
-                (order, after) => order.CompareTo(after) > 0,
-                item => new TargetItem
-                {
-                    TargetFirst = item.SourceFirst,
-                    TargetSecond = item.SourceSecond,
-                    TargetThird = item.SourceThird,
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
                 },
                 new Request
                 {
                     First = 2,
-                    After = ConnectionQuerySettings.Default.CursorFormatter.Format("1")
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(1)
                 });
 
-            Assert.AreEqual(2, connection.Edges.Count);
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public void ShouldPageQueryWithExplicitAcsendingOrder()
+        {
+            var connection = GetUserQuery().ToConnection(
+                user => SortBy.Ascending(user.Id),
+                (userId, after) => userId > after,
+                user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(1)
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public void ShouldPageQueryWithExplicitDesendingOrder()
+        {
+            var connection = GetUserQuery().ToConnection(
+                user => SortBy.Descending(user.Id),
+                (userId, after) => userId < after,
+                user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(5)
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
         }
 
         [Test]
         public void ShouldPageQueryFieldsByComplexOrder()
         {
-            var data = new[]
-            {
-                new SourceItem
+            var connection = GetUserQuery().ToConnection(
+                user => new { user.Id, user.CreatedAt },
+                (order, after) => order.CreatedAt > after.CreatedAt || (order.CreatedAt == after.CreatedAt && order.Id > after.Id),
+                user => new ExposedUser
                 {
-                    SourceFirst = "1",
-                    SourceSecond = 1,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "2",
-                    SourceSecond = 2,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "3",
-                    SourceSecond = 3,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "4",
-                    SourceSecond = 4,
-                    SourceThird = true
-                }
-            };
-
-            IQueryable<SourceItem> query = data.AsQueryable();
-
-            var connection = query.ToConnection(
-                item => new OrderStructure { O1 = item.SourceFirst, O2 = item.SourceSecond },
-                (order, after) => order.O1.CompareTo(after.O1) > 0 && order.O2 > after.O2,
-                item => new TargetItem
-                {
-                    TargetFirst = item.SourceFirst,
-                    TargetSecond = item.SourceSecond,
-                    TargetThird = item.SourceThird,
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
                 },
                 new Request
                 {
                     First = 2,
                     After = ConnectionQuerySettings.Default.CursorFormatter.Format(new {
-                        O1 = "1",
-                        O2 = 1
+                        Id = 1,
+                        CreatedAt = new DateTime(2019, 1, 2)
                     })
-                }); 
+                });
 
-            Assert.AreEqual(2, connection.Edges.Count);
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public void ShouldPageQueryFieldsByComplexOrderWithExplicitDesending()
+        {
+            var connection = GetUserQuery().ToConnection(
+                user => new {
+                    CreatedAt = SortBy.Ascending(user.CreatedAt),
+                    Id = SortBy.Descending(user.Id)
+                },
+                (order, after) => (order.CreatedAt > after.CreatedAt) || (order.CreatedAt == after.CreatedAt && order.Id < after.Id),
+                user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(new
+                    {
+                        CreatedAt = new DateTime(2019, 1, 2),
+                        Id = 4,
+                    })
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public void ShouldPageQueryOnlyByCount()
+        {
+            var connection = GetUserQuery().ToConnection(
+                user => user.Id,
+                (order, after) => order > after,
+                user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                new Request
+                {
+                    First = 2
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsFalse(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public void ShouldPageQueryOnlyByCursor()
+        {
+            var connection = GetUserQuery().ToConnection(
+                user => user.Id,
+                (order, after) => order > after,
+                user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                new Request
+                {
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(3)
+                });
+
+            Assert.AreEqual(3, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsFalse(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
         }
     }
 }

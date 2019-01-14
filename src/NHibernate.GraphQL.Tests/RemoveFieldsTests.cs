@@ -1,74 +1,63 @@
 ﻿using System.Linq;
 using NUnit.Framework;
+using NHibernate.GraphQL.Tests.TestData;
+using NHibernate.GraphQL.Tests.Dto;
 
 namespace NHibernate.GraphQL.Tests
 {
-    public class RemoveFieldsTests
+    public class RemoveFieldsTests: DatabaseFixture
     {
-        class SourceItem
+        class ExposedUser
         {
-            public string SourceFirst { get; set; }
+            public string Login { get; set; }
 
-            public int SourceSecond { get; set; }
+            public string Name { get; set; }
 
-            public bool SourceThird { get; set; }
+            public string FirstName { get; set; }
+
+            public string Email { get; set; }
         }
 
-        class TargetItem
+        private IQueryable<User> GetUserQuery()
         {
-            public string TargetFirst { get; set; }
+            var session = CreateSession();
 
-            public int TargetSecond { get; set; }
+            new UsersSet().CreateData(session);
 
-            public bool TargetThird { get; set; }
+            return session.Query<User>();
         }
 
         [Test]
         public void ShouldRemoveUnspecifiedFieldsFromQuery()
         {
-            var data = new[]
-            {
-                new SourceItem
-                {
-                    SourceFirst = "1",
-                    SourceSecond = 1,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "2",
-                    SourceSecond = 2,
-                    SourceThird = true
-                },
-                new SourceItem
-                {
-                    SourceFirst = "3",
-                    SourceSecond = 3,
-                    SourceThird = true
-                }
-            };
+            var session = CreateSession();
 
-            IQueryable<TargetItem> query = data.AsQueryable()
-                .Select(item => new TargetItem
+            new UsersSet().CreateData(session);
+
+            IQueryable<ExposedUser> query = session.Query<User>()
+                .Select(user => new ExposedUser
                 {
-                    TargetFirst = item.SourceFirst,
-                    TargetSecond = item.SourceSecond,
-                    TargetThird = item.SourceThird,
+                    Login = user.Login,
+                    Name = user.FirstName + user.LastName,
+                    Email = user.Email,
+                    FirstName = user.FirstName
                 });
 
             query = query.OptimizeQuery(new []
             {
-                nameof(TargetItem.TargetFirst)
+                nameof(ExposedUser.Login),
+                nameof(ExposedUser.Name)
             });
 
             var result = query.ToList();
 
-            Assert.AreEqual(3, result.Count);
-            foreach (var item in result)
+            Assert.Greater(result.Count, 0);
+            foreach (var user in result)
             {
-                Assert.AreNotEqual(default(string), item.TargetFirst);
-                Assert.AreEqual(default(int), item.TargetSecond);
-                Assert.AreEqual(default(bool), item.TargetThird);
+                Assert.AreNotEqual(default(string), user.Login);
+                Assert.AreNotEqual(default(string), user.Name);
+                Assert.AreEqual(default(string), user.Email);
+                Assert.AreEqual(default(string), user.FirstName);
             }
         }
     }
