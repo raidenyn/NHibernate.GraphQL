@@ -30,11 +30,7 @@ namespace NHibernate.GraphQL.Tests
         [Test]
         public void ShouldRemoveUnspecifiedFieldsFromQuery()
         {
-            var session = CreateSession();
-
-            new UsersSet().CreateData(session);
-
-            IQueryable<ExposedUser> query = session.Query<User>()
+            IQueryable<ExposedUser> query = GetUserQuery()
                 .Select(user => new ExposedUser
                 {
                     Login = user.Login,
