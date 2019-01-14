@@ -7,7 +7,7 @@
     {
         /// <summary>
         /// Parse passed string into a object instance.
-        /// <page>Should be formattable in <see cref="Format"/></page>
+        /// <para>Should be formattable in <see cref="Format"/></para>
         /// </summary>
         /// <typeparam name="TOrder">Object instance type</typeparam>
         /// <param name="cursor">Cursor string representation</param>
@@ -16,7 +16,7 @@
 
         /// <summary>
         /// Format passed object to string representation.
-        /// <page>Should be parsable in <see cref="ParseAs"/></page>
+        /// <para>Should be parsable in <see cref="ParseAs"/></para>
         /// </summary>
         /// <typeparam name="TOrder">Object instance type</typeparam>
         /// <param name="order">Object instance</param>

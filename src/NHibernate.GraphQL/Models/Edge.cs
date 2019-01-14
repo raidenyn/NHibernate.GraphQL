@@ -7,8 +7,8 @@
     public struct Edge<TNode>
     {
         /// <summary>
-        /// <page>Cursor of the element.</page>
-        /// <page>It can be used in <see cref="ICursorRequest"/> or <see cref="IReversedCursorRequest"/></page>
+        /// <para>Cursor of the element.</para>
+        /// <para>It can be used in <see cref="ICursorRequest"/> or <see cref="IReversedCursorRequest"/></para>
         /// </summary>
         public Cursor Cursor { get; set; }
 
