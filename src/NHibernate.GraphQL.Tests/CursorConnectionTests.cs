@@ -28,11 +28,9 @@ namespace NHibernate.GraphQL.Tests
 
         private IQueryable<User> GetUserQuery()
         {
-            var session = CreateSession();
+            new UsersSet().CreateData(Session);
 
-            new UsersSet().CreateData(session);
-
-            return session.Query<User>();
+            return Session.Query<User>();
         }
 
         [Test]

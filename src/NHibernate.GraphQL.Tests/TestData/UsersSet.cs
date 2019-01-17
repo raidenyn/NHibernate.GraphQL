@@ -5,9 +5,9 @@ namespace NHibernate.GraphQL.Tests.TestData
 {
     internal class UsersSet
     {
-        public void CreateData(ISession session)
+        public readonly User[] Users = new[]
         {
-            session.Save(new User
+            new User
             {
                 Id = 1,
                 Login = "User1",
@@ -17,8 +17,8 @@ namespace NHibernate.GraphQL.Tests.TestData
                 LastName = "User1",
                 PasswordHash = "1",
                 CreatedAt = new DateTime(2019, 1, 1),
-            });
-            session.Save(new User
+            },
+            new User
             {
                 Id = 2,
                 Login = "User2",
@@ -28,8 +28,8 @@ namespace NHibernate.GraphQL.Tests.TestData
                 LastName = "User2",
                 PasswordHash = "1234567890",
                 CreatedAt = new DateTime(2019, 1, 2),
-            });
-            session.Save(new User
+            },
+            new User
             {
                 Id = 3,
                 Login = "User3",
@@ -39,8 +39,8 @@ namespace NHibernate.GraphQL.Tests.TestData
                 LastName = "User3",
                 PasswordHash = "1234567890",
                 CreatedAt = new DateTime(2019, 1, 3),
-            });
-            session.Save(new User
+            },
+            new User
             {
                 Id = 4,
                 Login = "User4",
@@ -50,8 +50,8 @@ namespace NHibernate.GraphQL.Tests.TestData
                 LastName = "User4",
                 PasswordHash = "1234567890",
                 CreatedAt = new DateTime(2019, 1, 2),
-            });
-            session.Save(new User
+            },
+            new User
             {
                 Id = 5,
                 Login = "User5",
@@ -61,8 +61,8 @@ namespace NHibernate.GraphQL.Tests.TestData
                 LastName = "User5",
                 PasswordHash = "1234567890",
                 CreatedAt = new DateTime(2019, 1, 3),
-            });
-            session.Save(new User
+            },
+            new User
             {
                 Id = 6,
                 Login = "User6",
@@ -72,9 +72,19 @@ namespace NHibernate.GraphQL.Tests.TestData
                 LastName = "User6",
                 PasswordHash = "1234567890",
                 CreatedAt = new DateTime(2019, 1, 2),
-            });
+            }
+        };
+
+        public UsersSet CreateData(ISession session)
+        {
+            foreach (var user in Users)
+            {
+                session.Save(user);
+            }
 
             session.Flush();
+
+            return this;
         }
     }
 }

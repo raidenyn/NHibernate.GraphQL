@@ -10,7 +10,7 @@ namespace NHibernate.GraphQL
     /// <summary>
     /// Provides splitting database requests to limit sql request body size
     /// </summary>
-    public static class BulkQueryExtension
+    public static class BulkSelectExtension
     {
         private const int DefaultBatchSize = 1000;
 

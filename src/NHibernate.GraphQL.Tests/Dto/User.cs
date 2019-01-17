@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace NHibernate.GraphQL.Tests.Dto
 {
@@ -21,5 +22,11 @@ namespace NHibernate.GraphQL.Tests.Dto
         public virtual DateTime CreatedAt { get; set; }
 
         public virtual DateTime? RemovedAt { get; set; }
+
+        private ISet<Role> _roles;
+        public virtual ISet<Role> Roles {
+            get { return _roles ?? (_roles = new HashSet<Role>()); }
+            protected set { _roles = value; }
+        }
     }
 }

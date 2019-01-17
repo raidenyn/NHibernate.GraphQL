@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
-using NHibernate.Linq;
 
 namespace NHibernate.GraphQL
 {
@@ -19,33 +19,39 @@ namespace NHibernate.GraphQL
         /// </summary>
         /// <typeparam name="TDbObject">Database mapped object type</typeparam>
         /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TJunctionId">Junced id type</typeparam>
+        /// <typeparam name="TJunction">Type for joining result and junced types</typeparam>
+        /// <typeparam name="TJuncedId">Junced id type</typeparam>
         /// <typeparam name="TResultId">Result id type</typeparam>
         /// <param name="query">Original database LINQ query</param>
-        /// <param name="filtering">Function for creating filtered query</param>
-        /// <param name="selectResult">Select result statement</param>
-        /// <param name="selectJunction">Select junction statement</param>
-        /// <param name="getId">Returns result id from result object</param>
+        /// <param name="filter">Function for creating filtered query</param>
+        /// <param name="select">Expression with selecting target result values</param>
+        /// <param name="getResultId">Expression with extracting id of result object</param>
+        /// <param name="getJuncedId">Expression with extracting id of junced object</param>
         /// <param name="ids">List of requested ids</param>
         /// <param name="batchSize">Maximum cid count in one select batch</param>
         /// <returns>List of result objects mapped to id</returns>
-        public static ILookup<TJunctionId, TResult> BulkSelectMany<TDbObject, TResult, TJunctionId, TResultId>(
+        public static ILookup<TJuncedId, TResult> BulkSelectMany<TDbObject, TResult, TJunction, TJuncedId, TResultId>(
             this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJunctionId>, IQueryable<TDbObject>> filtering,
-            Func<IQueryable<TDbObject>, IQueryable<TResult>> selectResult,
-            Func<IQueryable<TDbObject>, IQueryable<Junction<TResultId, TJunctionId>>> selectJunction,
-            Func<TResult, TResultId> getId,
-            IReadOnlyCollection<TJunctionId> ids,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJuncedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TResultId>> getResultId,
+            Expression<Func<TJunction, TJuncedId>> getJuncedId,
+            IReadOnlyCollection<TJuncedId> ids,
             int batchSize = DefaultBatchSize)
+            where TResult: class
         {
-            Task<(IEnumerable<TResult>, IEnumerable<Junction<TResultId, TJunctionId>>)> Executor(
-                IFutureEnumerable<TResult> resultQuery,
-                IFutureEnumerable<Junction<TResultId, TJunctionId>> junctionQuery)
-            {
-                return Task.FromResult((resultQuery.GetEnumerable(), junctionQuery.GetEnumerable()));
-            }
+            var builder = new BulkSelectManyExpressionBuilder<TDbObject, TResult, TJunction, TJuncedId, TResultId>();
 
-            return BulkSelectManyAsync(query, filtering, selectResult, selectJunction, getId, ids, DefaultBatchSize, Executor).Result;
+            var data = builder.LoadData(
+                query,
+                filter,
+                select,
+                getResultId,
+                getJuncedId,
+                ids,
+                batchSize);
+
+            return builder.ToLookup(data);
         }
 
         /// <summary>
@@ -53,36 +59,42 @@ namespace NHibernate.GraphQL
         /// </summary>
         /// <typeparam name="TDbObject">Database mapped object type</typeparam>
         /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TJunctionId">Junced id type</typeparam>
+        /// <typeparam name="TJunction">Type for joining result and junced types</typeparam>
+        /// <typeparam name="TJuncedId">Junced id type</typeparam>
         /// <typeparam name="TResultId">Result id type</typeparam>
         /// <param name="query">Original database LINQ query</param>
-        /// <param name="filtering">Function for creating filtered query</param>
-        /// <param name="selectResult">Select result statement</param>
-        /// <param name="selectJunction">Select junction statement</param>
-        /// <param name="getId">Returns result id from result object</param>
+        /// <param name="filter">Function for creating filtered query</param>
+        /// <param name="select">Expression with selecting target result values</param>
+        /// <param name="getResultId">Expression with extracting id of result object</param>
+        /// <param name="getJuncedId">Expression with extracting id of junced object</param>
         /// <param name="ids">List of requested ids</param>
         /// <param name="batchSize">Maximum cid count in one select batch</param>
         /// <param name="cancellationToken">Cancellation tocken for sql requests</param>
         /// <returns>List of result objects mapped to id</returns>
-        public static Task<ILookup<TJunctionId, TResult>> BulkSelectManyAsync<TDbObject, TResult, TJunctionId, TResultId>(
+        public static async Task<ILookup<TJuncedId, TResult>> BulkSelectManyAsync<TDbObject, TResult, TJunction, TJuncedId, TResultId>(
             this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJunctionId>, IQueryable<TDbObject>> filtering,
-            Func<IQueryable<TDbObject>, IQueryable<TResult>> selectResult,
-            Func<IQueryable<TDbObject>, IQueryable<Junction<TResultId, TJunctionId>>> selectJunction,
-            Func<TResult, TResultId> getId,
-            IReadOnlyCollection<TJunctionId> ids,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJuncedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TResultId>> getResultId,
+            Expression<Func<TJunction, TJuncedId>> getJuncedId,
+            IReadOnlyCollection<TJuncedId> ids,
             int batchSize = DefaultBatchSize,
             CancellationToken cancellationToken = default)
+            where TResult : class
         {
-            async Task<(IEnumerable<TResult>, IEnumerable<Junction<TResultId, TJunctionId>>)> ExecutorAsync(
-                IFutureEnumerable<TResult> resultQuery,
-                IFutureEnumerable<Junction<TResultId, TJunctionId>> junctionQuery)
-            {
-                return (await resultQuery.GetEnumerableAsync().ConfigureAwait(false),
-                        await junctionQuery.GetEnumerableAsync().ConfigureAwait(false));
-            }
+            var builder = new BulkSelectManyExpressionBuilder<TDbObject, TResult, TJunction, TJuncedId, TResultId>();
 
-            return BulkSelectManyAsync(query, filtering, selectResult, selectJunction, getId, ids, DefaultBatchSize, ExecutorAsync);
+            var data = await builder.LoadDataAsync(
+                query,
+                filter,
+                select,
+                getResultId,
+                getJuncedId,
+                ids,
+                batchSize,
+                cancellationToken).ConfigureAwait(false);
+
+            return builder.ToLookup(data);
         }
 
         /// <summary>
@@ -90,70 +102,28 @@ namespace NHibernate.GraphQL
         /// </summary>
         /// <typeparam name="TDbObject">Database mapped object type</typeparam>
         /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TJunctionId">Junced id type</typeparam>
+        /// <typeparam name="TJunction">Type for joining result and junced types</typeparam>
+        /// <typeparam name="TJuncedId">Junced id type</typeparam>
         /// <typeparam name="TResultId">Result id type</typeparam>
         /// <param name="query">Original database LINQ query</param>
-        /// <param name="filtering">Function for creating filtered query</param>
-        /// <param name="selectResult">Select result statement</param>
-        /// <param name="selectJunction">Select junction statement</param>
-        /// <param name="getId">Returns result id from result object</param>
+        /// <param name="filter">Function for creating filtered query</param>
+        /// <param name="select">Expression with selecting target result values</param>
+        /// <param name="getResultId">Expression with extracting id of result object</param>
+        /// <param name="getJuncedId">Expression with extracting id of junced object</param>
         /// <param name="ids">List of requested ids</param>
         /// <param name="cancellationToken">Cancellation tocken for sql requests</param>
         /// <returns>List of result objects mapped to id</returns>
-        public static Task<ILookup<TJunctionId, TResult>> BulkSelectManyAsync<TDbObject, TResult, TJunctionId, TResultId>(
+        public static Task<ILookup<TJuncedId, TResult>> BulkSelectManyAsync<TDbObject, TResult, TJunction, TJuncedId, TResultId>(
             this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJunctionId>, IQueryable<TDbObject>> filtering,
-            Func<IQueryable<TDbObject>, IQueryable<TResult>> selectResult,
-            Func<IQueryable<TDbObject>, IQueryable<Junction<TResultId, TJunctionId>>> selectJunction,
-            Func<TResult, TResultId> getId,
-            IReadOnlyCollection<TJunctionId> ids,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJuncedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TResultId>> getResultId,
+            Expression<Func<TJunction, TJuncedId>> getJuncedId,
+            IReadOnlyCollection<TJuncedId> ids,
             CancellationToken cancellationToken = default)
+            where TResult : class
         {
-            return BulkSelectManyAsync(query, filtering, selectResult, selectJunction, getId, ids, DefaultBatchSize, cancellationToken);
-        }
-
-        private static async Task<ILookup<TJunctionId, TResult>> BulkSelectManyAsync<TDbObject, TResult, TJunctionId, TResultId>(
-            this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJunctionId>, IQueryable<TDbObject>> filtering,
-            Func<IQueryable<TDbObject>, IQueryable<TResult>> selectResult,
-            Func<IQueryable<TDbObject>, IQueryable<Junction<TResultId, TJunctionId>>> selectJunction,
-            Func<TResult, TResultId> id,
-            IReadOnlyCollection<TJunctionId> values,
-            int batchSize,
-            Func<IFutureEnumerable<TResult>, IFutureEnumerable<Junction<TResultId, TJunctionId>>, Task<(IEnumerable<TResult>, IEnumerable<Junction<TResultId, TJunctionId>>)>> executor)
-        {
-            var results = new List<IEnumerable<TResult>>(capacity: values.Count / batchSize + 1);
-            var junctions = new List<IEnumerable<Junction<TResultId, TJunctionId>>>(capacity: results.Count);
-
-            for (int offset = 0; offset < results.Count; offset += batchSize)
-            {
-                TJunctionId[] batchValues = values.Skip(offset).Take(batchSize).ToArray();
-
-                IQueryable<TDbObject> batchQuery = filtering(query, batchValues);
-
-                IFutureEnumerable<TResult> resultQuery = selectResult(batchQuery).Distinct().ToFuture();
-                IFutureEnumerable<Junction<TResultId, TJunctionId>> junctionQuery = selectJunction(batchQuery).Distinct().ToFuture();
-
-                var (result, junction) = await executor(resultQuery, junctionQuery).ConfigureAwait(false);
-
-                results.Add(result);
-                junctions.Add(junction);
-            }
-
-            Dictionary<TResultId, TResult> dic = results.SelectMany(result => result).ToDictionary(id);
-
-            return junctions
-                .SelectMany(junction => junction)
-                .Select(item =>
-                {
-                    if (dic.TryGetValue(item.ResultId, out var result))
-                    {
-                        return new { item.JunctionId, Result = result };
-                    }
-                    return null;
-                })
-                .Where(item => item != null)
-                .ToLookup(item => item.JunctionId, item => item.Result);
+            return BulkSelectManyAsync(query, filter, select, getResultId, getJuncedId, ids, DefaultBatchSize, cancellationToken);
         }
     }
 }

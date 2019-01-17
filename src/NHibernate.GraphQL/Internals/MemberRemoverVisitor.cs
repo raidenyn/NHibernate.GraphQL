@@ -10,19 +10,34 @@ namespace NHibernate.GraphQL
     {
         private readonly HashSet<MemberInfo> _keepMembers;
 
-        public MemberRemoverVisitor(IEnumerable<MemberInfo> keepMembers)
+        private readonly List<MemberInfo> _usedMembers;
+
+        public MemberRemoverVisitor(IEnumerable<MemberInfo> keepMembers, Expression expression)
         {
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
             _keepMembers = new HashSet<MemberInfo>(keepMembers);
+            _usedMembers = new List<MemberInfo>(capacity: _keepMembers.Count);
+
+            ClearedExpression = Visit(expression);
+
+            _keepMembers.ExceptWith(_usedMembers);
+            _usedMembers.Clear();
         }
 
-        public Expression RemoveFields(Expression expression)  
-        {  
-            return Visit(expression);
+        public Expression ClearedExpression { get; }
+
+        public ICollection<MemberInfo> UnusedMembers
+        {
+            get
+            {
+                return _keepMembers;
+            }
         }
 
         protected override MemberAssignment VisitMemberAssignment(MemberAssignment node)
         {
+            _usedMembers.Add(node.Member);
+
             if (!_keepMembers.Contains(node.Member))
             {
                 var type = node.Member.GetPropertyOrFieldType();

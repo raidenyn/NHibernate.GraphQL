@@ -3,7 +3,6 @@ using NHibernate.Cfg;
 using NHibernate.Dialect;
 using NHibernate.GraphQL.Tests.Dto;
 using NHibernate.Mapping.ByCode;
-using NHibernate.SqlCommand;
 using NHibernate.Tool.hbm2ddl;
 using NUnit.Framework;
 
@@ -11,11 +10,13 @@ namespace NHibernate.GraphQL.Tests
 {
     public class DatabaseFixture
     {
-        private ISessionFactory _sessionFactory;
-        private Configuration _configuration;
+        private static ISessionFactory _sessionFactory;
+        private static Configuration _configuration;
+        private static SchemaExport _schemaExport;
 
-        [OneTimeSetUp]
-        public void Startup()
+        protected ISession Session { get; private set; }
+
+        static DatabaseFixture()
         {
             _configuration = new Configuration();
             SetMappings(_configuration);
@@ -32,18 +33,33 @@ namespace NHibernate.GraphQL.Tests
             });
 
             _sessionFactory = _configuration.BuildSessionFactory();
+
+            _schemaExport = new SchemaExport(_configuration);
         }
 
-        protected ISession CreateSession()
+        [SetUp]
+        public void SetUp()
+        {
+            Session = CreateSession();
+            _schemaExport.Execute(
+                useStdOut: true,
+                execute: true,
+                justDrop: false,
+                connection: Session.Connection,
+                exportOutput: null);
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            Session.Dispose();
+            Session = null;
+        }
+
+        private ISession CreateSession()
         {
             ISession openSession = _sessionFactory.OpenSession();
             DbConnection connection = openSession.Connection;
-            new SchemaExport(_configuration).Execute(
-                useStdOut: false,
-                execute: true,
-                justDrop: false,
-                connection: connection,
-                exportOutput: null);
             return openSession;
         }
 

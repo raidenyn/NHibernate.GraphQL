@@ -7,7 +7,6 @@ namespace NHibernate.GraphQL.Tests.Dto.Mapping
     {
         public UserMapping()
         {
-            // Generating objects ids from be HighLow algrithm
             Id(x => x.Id, map =>
             {
                 map.Generator(Generators.Assigned);
@@ -24,6 +23,13 @@ namespace NHibernate.GraphQL.Tests.Dto.Mapping
                 m.NotNullable(false);
                 m.Lazy(true);
             });
+
+            Set(x => x.Roles, map =>
+            {
+                map.Table("UserRoleJunction");
+                map.Key(k => k.Column("UserId"));
+                map.Lazy(CollectionLazy.Lazy);
+            }, map => map.ManyToMany(p => p.Column("RoleId")));
         }
     }
 }

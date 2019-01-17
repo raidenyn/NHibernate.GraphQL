@@ -18,14 +18,24 @@ namespace NHibernate.GraphQL
         /// <param name="query">NHibernate query</param>
         /// <param name="keepMembers">List of members to select</param>
         /// <returns>Optimized NHibernate query</returns>
-        public static IQueryable<TResult> OptimizeQuery<TResult>(this IQueryable<TResult> query, IEnumerable<MemberInfo> keepMembers)
+        public static IQueryable<TResult> OptimizeQuery<TResult>(this IQueryable<TResult> query, IReadOnlyCollection<MemberInfo> keepMembers)
         {
             if (query == null) throw new ArgumentNullException(nameof(query));
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
 
-            Expression expression = new MemberRemoverVisitor(keepMembers).RemoveFields(query.Expression);
+            if (keepMembers.Count == 0)
+            {
+                throw new ArgumentException("Member list should containes at last one field", nameof(keepMembers));
+            }
 
-            return query.Provider.CreateQuery<TResult>(expression);
+            var fieldRemover = new MemberRemoverVisitor(keepMembers, query.Expression);
+
+            if (fieldRemover.UnusedMembers.Count > 0)
+            {
+                throw new ArgumentException("Member list contents unexiting in members the query. Check passed memebers.");
+            }
+
+            return query.Provider.CreateQuery<TResult>(fieldRemover.ClearedExpression);
         }
 
         /// <summary>
@@ -40,8 +50,13 @@ namespace NHibernate.GraphQL
             if (query == null) throw new ArgumentNullException(nameof(query));
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
 
+            if (keepMembers.Count == 0)
+            {
+                throw new ArgumentException("Selected member list should containes at last one field", nameof(keepMembers));
+            }
+
             System.Type type = typeof(TResult);
-            IEnumerable<MemberInfo> members = keepMembers.SelectMany(memberName => type.GetMember(memberName));
+            MemberInfo[] members = keepMembers.SelectMany(memberName => type.GetMember(memberName)).ToArray();
 
             return query.OptimizeQuery(members);
         }
@@ -56,13 +71,18 @@ namespace NHibernate.GraphQL
         /// <returns>Optimized NHibernate query</returns>
         public static Expression<Func<TDbObject, TResult>> OptimizeSelect<TDbObject, TResult>(
             this Expression<Func<TDbObject, TResult>> select,
-            IEnumerable<string> keepMembers)
+            IReadOnlyCollection<string> keepMembers)
         {
             if (select == null) throw new ArgumentNullException(nameof(select));
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
 
+            if (keepMembers.Count == 0)
+            {
+                throw new ArgumentException("Selected member list should containes at last one field", nameof(keepMembers));
+            }
+
             System.Type type = typeof(TResult);
-            IEnumerable<MemberInfo> members = keepMembers.SelectMany(memberName => type.GetMember(memberName));
+            MemberInfo[] members = keepMembers.SelectMany(memberName => type.GetMember(memberName)).ToArray();
 
             return OptimizeSelect(select, members);
         }
@@ -77,12 +97,24 @@ namespace NHibernate.GraphQL
         /// <returns>Optimized NHibernate query</returns>
         public static Expression<Func<TDbObject, TResult>> OptimizeSelect<TDbObject, TResult>(
             this Expression<Func<TDbObject, TResult>> select,
-            IEnumerable<MemberInfo> keepMembers)
+            IReadOnlyCollection<MemberInfo> keepMembers)
         {
             if (select == null) throw new ArgumentNullException(nameof(select));
             if (keepMembers == null) throw new ArgumentNullException(nameof(keepMembers));
 
-            return (Expression<Func<TDbObject, TResult>>) new MemberRemoverVisitor(keepMembers).RemoveFields(select);
+            if (keepMembers.Count == 0)
+            {
+                throw new ArgumentException("Selected member list should containes at last one field", nameof(keepMembers));
+            }
+
+            var fieldRemover = new MemberRemoverVisitor(keepMembers, select);
+
+            if (fieldRemover.UnusedMembers.Count > 0)
+            {
+                throw new ArgumentException("Member list contents unexiting in members the query. Check passed memebers.");
+            }
+
+            return (Expression<Func<TDbObject, TResult>>) fieldRemover.ClearedExpression;
         }
     }
 }
