@@ -61,7 +61,7 @@ Connection<ExposedUser> connection = query.ToConnection(
 
 #### Creating connection with sorting by a few fields
 
-Sometimes sorting by ID is not enough. For example, we may want to sort our users by `CreatedAt` field. But the field is not unique and few users can receive the same value for the field. In this case we cannot create unique cursor based only on `CreateAt` field. So we have to add some unique field to the sorting to receive guarantee that our sorting is always persist. ID is good value for this.
+Sometimes sorting by ID is not enough. For example, we may want to sort our users by `CreatedAt` field. But the field is not unique and few users can receive the same value for the field. In this case we cannot create unique cursor based only on `CreateAt` field. So we have to add some unique field to the sorting to receive guarantee that our sorting is always consistent. ID is good for this.
 
 We can use anonymous type to sort our objects by a few fields:
 
@@ -127,7 +127,7 @@ IDictionary<int, ExposedUserAddress> dictionary =
   session.Query<UserAddress>().BulkSelect(
     // filtering query to retrieve a junction of address and user
     filter: (addresses, userIdsPart) =>
-        from address in addresses 
+        from address in addresses
         from user in address.Users
         where userIdsPart.Contains(user.Id)
         select new { address, user },
@@ -145,10 +145,7 @@ IDictionary<int, ExposedUserAddress> dictionary =
     getId: item => item.address.Id,
 
     // required ids
-    ids: userIds,
-
-    // maximum ids in one select query to database
-    batchSize: 1000);
+    ids: userIds);
 
 ```
 
@@ -184,10 +181,7 @@ ILookup<int, ExposedUserRole> lookup =
     getJoinedId: junction => junction.user.Id,
 
     // required ids
-    ids: userIds,
-
-    // maximum ids in one select query to database
-    batchSize: 1000);
+    ids: userIds);
 
 ```
 
