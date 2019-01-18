@@ -1,6 +1,6 @@
 # Tools for GraphQL API implementation based on NHibernate
 
-[![Build status](https://ci.appveyor.com/api/projects/status/oi9nqy36rgj5b9se/branch/master?svg=true)](https://ci.appveyor.com/project/raidenyn/sqldeploy/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/a3ym70967jj8m6ne/branch/master?svg=true)](https://ci.appveyor.com/project/raidenyn/nhibernate-graphql/branch/master)
 
 ## Main methods
 
