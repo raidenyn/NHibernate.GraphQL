@@ -5,7 +5,7 @@ namespace NHibernate.GraphQL.Tests.Dto
 {
     public class User
     {
-        public virtual long Id { get; set; }
+        public virtual int Id { get; set; }
 
         public virtual string Login { get; set; }
 
@@ -28,5 +28,7 @@ namespace NHibernate.GraphQL.Tests.Dto
             get { return _roles ?? (_roles = new HashSet<Role>()); }
             protected set { _roles = value; }
         }
+
+        public virtual Address Address { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using NHibernate.GraphQL.Tests.Dto;
 using NHibernate.GraphQL.Tests.TestData;
@@ -8,171 +9,153 @@ namespace NHibernate.GraphQL.Tests
 {
     class BulkSelectTests: DatabaseFixture
     {
-        private IQueryable<User> GetUserQuery()
-        {
-            new UsersSet().CreateData(Session);
-
-            return Session.Query<User>();
-        }
-
         [Test]
         public void ShouldSelectObjectByIdSplitedByBatches()
         {
-            int batchCounter = 0;
+            var data = Execute(userIds: new int[] { 1, 2, 3, 4, 5 });
 
-            var items = GetUserQuery().BulkSelect(
-                select: (users, ids) =>
-                    {
-                        batchCounter++;
-                        return from user in users
-                               where ids.Contains(user.Id)
-                               select new
-                               {
-                                   user.Login,
-                                   user.Email,
-                                   user.FirstName,
-                                   Name = user.FirstName + user.LastName
-                               };
-                    },
-                ids: new long[] { 1, 2, 3, 4, 5 },
-                batchSize: 2).ToList();
-
-            Assert.AreEqual(5, items.Count, "Count of users is wrong");
-            Assert.AreEqual(3, batchCounter, "BatchCounter is wrong");
+            Assert.AreEqual(5, data.Dictionary.Count, "Count of adresses is wrong");
+            Assert.AreEqual(3, data.BatchCount, "BatchCount is wrong");
         }
 
         [Test]
         public async Task ShouldSelectObjectByIdSplitedByBatchesAsync()
         {
-            int batchCounter = 0;
+            var data = await ExecuteAsync(userIds: new int[] { 1, 2, 3, 4, 5 });
 
-            var items = (await GetUserQuery().BulkSelectAsync(
-                select: (users, ids) =>
-                {
-                    batchCounter++;
-                    return from user in users
-                           where ids.Contains(user.Id)
-                           select new
-                           {
-                               user.Login,
-                               user.Email,
-                               user.FirstName,
-                               Name = user.FirstName + user.LastName
-                           };
-                },
-                ids: new long[] { 1, 2, 3, 4, 5 },
-                batchSize: 2)).ToList();
-
-            Assert.AreEqual(5, items.Count, "Count of users is wrong");
-            Assert.AreEqual(3, batchCounter, "BatchCounter is wrong");
-        }
-
-        [Test]
-        public void ShouldSelectObjectIntoDictionaryByBatches()
-        {
-            int batchCounter = 0;
-
-            var dictionary = GetUserQuery().BulkSelect(
-                select: (users, ids) =>
-                {
-                    batchCounter++;
-                    return from user in users
-                           where ids.Contains(user.Id)
-                           select new
-                           {
-                               user.Id,
-                               user.Login,
-                               user.Email,
-                               user.FirstName,
-                               Name = user.FirstName + user.LastName
-                           };
-                },
-                getId: user => user.Id,
-                ids: new long[] { 1, 2, 3, 4, 5 },
-                batchSize: 2);
-
-            Assert.AreEqual(5, dictionary.Count, "Count of users is wrong");
-            Assert.AreEqual(3, batchCounter, "BatchCounter is wrong");
-        }
-
-        [Test]
-        public async Task ShouldSelectObjectIntoDictionaryByBatchesAsync()
-        {
-            int batchCounter = 0;
-
-            var dictionary = await GetUserQuery().BulkSelectAsync(
-                select: (users, ids) =>
-                {
-                    batchCounter++;
-                    return from user in users
-                           where ids.Contains(user.Id)
-                           select new
-                           {
-                               user.Id,
-                               user.Login,
-                               user.Email,
-                               user.FirstName,
-                               Name = user.FirstName + user.LastName
-                           };
-                },
-                getId: user => user.Id,
-                ids: new long[] { 1, 2, 3, 4, 5 },
-                batchSize: 2);
-
-            Assert.AreEqual(5, dictionary.Count, "Count of users is wrong");
-            Assert.AreEqual(3, batchCounter, "BatchCounter is wrong");
+            Assert.AreEqual(5, data.Dictionary.Count, "Count of adresses is wrong");
+            Assert.AreEqual(3, data.BatchCount, "BatchCount is wrong");
         }
 
         [Test]
         public void ShouldReturnEmptyListEmptyIdRequest()
         {
-            int batchCounter = 0;
+            var data = Execute(userIds: new int[] { });
 
-            var items = GetUserQuery().BulkSelect(
-                select: (users, ids) =>
-                {
-                    batchCounter++;
-                    return from user in users
-                           where ids.Contains(user.Id)
-                           select new
-                           {
-                               user.Login,
-                               user.Email,
-                               user.FirstName,
-                               Name = user.FirstName + user.LastName
-                           };
-                },
-                ids: new long[] { },
-                batchSize: 2).ToList();
+            Assert.AreEqual(0, data.Dictionary.Count, "Count of adresses is wrong");
+            Assert.AreEqual(0, data.BatchCount, "BatchCount is wrong");
+        }
 
-            Assert.AreEqual(0, items.Count, "Count of users is wrong");
-            Assert.AreEqual(0, batchCounter, "BatchCounter is wrong");
+        [Test]
+        public async Task ShouldReturnEmptyListEmptyIdRequestAsync()
+        {
+            var data = await ExecuteAsync(userIds: new int[] { });
+
+            Assert.AreEqual(0, data.Dictionary.Count, "Count of adresses is wrong");
+            Assert.AreEqual(0, data.BatchCount, "BatchCount is wrong");
         }
 
         [Test]
         public void ShouldNotReturnNotExistingItems()
         {
+            var data = Execute(userIds: new int[] { 1, 3, 6, 9, 12 });
+
+            Assert.AreEqual(3, data.Dictionary.Count, "Count of adresses is wrong");
+            Assert.AreEqual(3, data.BatchCount, "BatchCount is wrong");
+        }
+
+        [Test]
+        public async Task ShouldNotReturnNotExistingItemsAsync()
+        {
+            var data = await ExecuteAsync(userIds: new int[] { 1, 3, 6, 9, 12 });
+
+            Assert.AreEqual(3, data.Dictionary.Count, "Count of adresses is wrong");
+            Assert.AreEqual(3, data.BatchCount, "BatchCount is wrong");
+        }
+
+        private IQueryable<Address> GetAddressQuery()
+        {
+            new AddressesSet(new UsersSet().CreateData(Session)).CreateData(Session);
+
+            return Session.Query<Address>();
+        }
+
+        private LoadResult Execute(int[] userIds)
+        {
             int batchCounter = 0;
 
-            var items = GetUserQuery().BulkSelect(
-                select: (users, ids) =>
+            IDictionary<int, ExposedAddress> dic = GetAddressQuery().BulkSelect(
+                filter: (addresses, ids) =>
                 {
                     batchCounter++;
-                    return from user in users
+                    return from address in addresses
+                           from user in address.Users
                            where ids.Contains(user.Id)
                            select new
                            {
-                               user.Login,
-                               user.Email,
-                               user.FirstName,
-                               Name = user.FirstName + user.LastName
+                               user,
+                               address
                            };
                 },
-                ids: new long[] { 1, 3, 6, 9, 12 },
-                batchSize: 2).ToList();
+                select: (junction) => new ExposedAddress
+                {
+                    Zip = junction.address.Zip,
+                    Street = junction.address.Street,
+                    House = junction.address.House,
+                    Text = junction.address.Street + " " + junction.address.House + ", " + junction.address.Zip,
+                },
+                getJoinedId: (junction) => junction.user.Id,
+                ids: userIds,
+                batchSize: 2);
 
-            Assert.AreEqual(3, items.Count, "Count of users is wrong");
-            Assert.AreEqual(3, batchCounter, "BatchCounter is wrong");
+            return new LoadResult
+            {
+                Dictionary = dic,
+                BatchCount = batchCounter,
+            };
+        }
+
+        private async Task<LoadResult> ExecuteAsync(int[] userIds)
+        {
+            int batchCounter = 0;
+
+            IDictionary<int, ExposedAddress> dic = await GetAddressQuery().BulkSelectAsync(
+                filter: (addresses, ids) =>
+                {
+                    batchCounter++;
+                    return from address in addresses
+                           from user in address.Users
+                           where ids.Contains(user.Id)
+                           select new
+                           {
+                               user,
+                               address
+                           };
+                },
+                select: (junction) => new ExposedAddress
+                {
+                    Zip = junction.address.Zip,
+                    Street = junction.address.Street,
+                    House = junction.address.House,
+                    Text = junction.address.Street + " " + junction.address.House + ", " + junction.address.Zip,
+                },
+                getJoinedId: (junction) => junction.user.Id,
+                ids: userIds,
+                batchSize: 2);
+
+            return new LoadResult
+            {
+                Dictionary = dic,
+                BatchCount = batchCounter,
+            };
+        }
+
+        private class ExposedAddress
+        {
+            public string Zip { get; set; }
+
+            public string Street { get; set; }
+
+            public string House { get; set; }
+
+            public string Text { get; set; }
+        }
+
+        private struct LoadResult
+        {
+            public IDictionary<int, ExposedAddress> Dictionary { get; set; }
+
+            public int BatchCount { get; set; }
         }
     }
 }

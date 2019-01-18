@@ -12,7 +12,13 @@ namespace NHibernate.GraphQL
     /// </summary>
     public static class BulkSelectManyExtension
     {
-        private const int DefaultBatchSize = 500;
+        /// <summary>
+        /// Default maximum count of ids passed to a database in one sql query in
+        /// <see cref="BulkSelectMany{TDbObject, TResult, TJunction, TJuncedId, TResultId}(IQueryable{TDbObject}, Func{IQueryable{TDbObject}, IReadOnlyCollection{TJuncedId}, IQueryable{TJunction}}, Expression{Func{TJunction, TResult}}, Expression{Func{TJunction, TResultId}}, Expression{Func{TJunction, TJuncedId}}, IReadOnlyCollection{TJuncedId}, int)"/>
+        /// and 
+        /// <see cref="BulkSelectManyAsync{TDbObject, TResult, TJunction, TJuncedId, TResultId}(IQueryable{TDbObject}, Func{IQueryable{TDbObject}, IReadOnlyCollection{TJuncedId}, IQueryable{TJunction}}, Expression{Func{TJunction, TResult}}, Expression{Func{TJunction, TResultId}}, Expression{Func{TJunction, TJuncedId}}, IReadOnlyCollection{TJuncedId}, CancellationToken)"/>
+        /// </summary>
+        public const int DefaultBatchSize = 500;
 
         /// <summary>
         /// Bulk select from database for junced objects

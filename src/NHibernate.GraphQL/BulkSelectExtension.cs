@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
-using NHibernate.Linq;
 
 namespace NHibernate.GraphQL
 {
@@ -12,159 +12,138 @@ namespace NHibernate.GraphQL
     /// </summary>
     public static class BulkSelectExtension
     {
-        private const int DefaultBatchSize = 1000;
+        /// <summary>
+        /// Default maximum count of ids passed to a database in one sql query in
+        /// <see cref="BulkSelect{TDbObject, TResult, TJunction, TJoinedId}(IQueryable{TDbObject}, Func{IQueryable{TDbObject}, IReadOnlyCollection{TJoinedId}, IQueryable{TJunction}}, Expression{Func{TJunction, TResult}}, Expression{Func{TJunction, TJoinedId}}, IReadOnlyCollection{TJoinedId}, int)"/>
+        /// and 
+        /// <see cref="BulkSelectAsync{TDbObject, TResult, TJunction, TJoinedId}(IQueryable{TDbObject}, Func{IQueryable{TDbObject}, IReadOnlyCollection{TJoinedId}, IQueryable{TJunction}}, Expression{Func{TJunction, TResult}}, Expression{Func{TJunction, TJoinedId}}, IReadOnlyCollection{TJoinedId}, int)"/> methods.
+        /// </summary>
+        public const int DefaultBatchSize = 1000;
 
         /// <summary>
         /// Synchroniosly requests data in databse
         /// </summary>
         /// <typeparam name="TDbObject">Database mapped object type</typeparam>
         /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TId">Parameter object type</typeparam>
+        /// <typeparam name="TJunction">Intermediate object type to represent result object and joined id</typeparam>
+        /// <typeparam name="TJoinedId">Parameter object type</typeparam>
         /// <param name="query">Original database LINQ query</param>
-        /// <param name="select">Function to difine filteration by the ids and selection result objects</param>
+        /// <param name="filter">Function to difine filteration by the ids result objects</param>
+        /// <param name="select">Expression to extract result objects</param>
+        /// <param name="getJoinedId">Expression to extract joined id</param>
         /// <param name="ids">Collection of the id objects</param>
         /// <param name="batchSize">Maximum count of ids in one select</param>
-        /// <returns></returns>
-        public static IEnumerable<TResult> BulkSelect<TDbObject, TResult, TId>(
+        /// <returns>Dictionary of the result selection</returns>
+        public static IDictionary<TJoinedId, TResult> BulkSelect<TDbObject, TResult, TJunction, TJoinedId>(
             this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            IReadOnlyCollection<TId> ids,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJoinedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TJoinedId>> getJoinedId,
+            IReadOnlyCollection<TJoinedId> ids,
             int batchSize = DefaultBatchSize)
+            where TResult : class
         {
-            return BulkSelectAsync(query, select, ids, batchSize, batch => Task.FromResult(batch.ToList())).Result;
+            var builder = new BulkSelectExpressionBuilder<TDbObject, TResult, TJunction, TJoinedId>();
+
+            var data = builder.LoadData(
+                query,
+                filter,
+                select,
+                getJoinedId,
+                ids,
+                batchSize);
+
+            return builder.ToDictionary(data);
         }
 
         /// <summary>
-        /// Asynchroniosly requests data in databse
+        /// Asynchroniosly requests data in database
         /// </summary>
         /// <typeparam name="TDbObject">Database mapped object type</typeparam>
         /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TId">Parameter object type</typeparam>
+        /// <typeparam name="TJunction">Intermediate object type to represent result object and joined id</typeparam>
+        /// <typeparam name="TJoinedId">Parameter object type</typeparam>
         /// <param name="query">Original database LINQ query</param>
-        /// <param name="select">Function to difine filteration by the ids and selection result objects</param>
+        /// <param name="filter">Function to difine filteration by the ids result objects</param>
+        /// <param name="select">Expression to extract result objects</param>
+        /// <param name="getJoinedId">Expression to extract joined id</param>
+        /// <param name="ids">Collection of the id objects</param>
+        /// <param name="batchSize">Maximum count of ids in one select</param>
+        /// <returns>Dictionary of the result selection</returns>
+        public static async Task<IDictionary<TJoinedId, TResult>> BulkSelectAsync<TDbObject, TResult, TJunction, TJoinedId>(
+            this IQueryable<TDbObject> query,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJoinedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TJoinedId>> getJoinedId,
+            IReadOnlyCollection<TJoinedId> ids,
+            int batchSize)
+            where TResult : class
+        {
+            var builder = new BulkSelectExpressionBuilder<TDbObject, TResult, TJunction, TJoinedId>();
+
+            var data = await builder.LoadDataAsync(
+                query,
+                filter,
+                select,
+                getJoinedId,
+                ids,
+                batchSize).ConfigureAwait(false);
+
+            return builder.ToDictionary(data);
+        }
+
+        /// <summary>
+        /// Asynchroniosly requests data in database
+        /// </summary>
+        /// <typeparam name="TDbObject">Database mapped object type</typeparam>
+        /// <typeparam name="TResult">Result object type</typeparam>
+        /// <typeparam name="TJunction">Intermediate object type to represent result object and joined id</typeparam>
+        /// <typeparam name="TJoinedId">Parameter object type</typeparam>
+        /// <param name="query">Original database LINQ query</param>
+        /// <param name="filter">Function to difine filteration by the ids result objects</param>
+        /// <param name="select">Expression to extract result objects</param>
+        /// <param name="getJoinedId">Expression to extract joined id</param>
+        /// <param name="ids">Collection of the id objects</param>
+        /// <param name="cancellationToken">Token to cancel the requests</param>
+        /// <returns>Dictionary of the result selection</returns>
+        public static Task<IDictionary<TJoinedId, TResult>> BulkSelectAsync<TDbObject, TResult, TJunction, TJoinedId>(
+            this IQueryable<TDbObject> query,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJoinedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TJoinedId>> getJoinedId,
+            IReadOnlyCollection<TJoinedId> ids,
+            CancellationToken cancellationToken = default)
+            where TResult : class
+        {
+            return BulkSelectAsync(query, filter, select, getJoinedId, ids, DefaultBatchSize, cancellationToken);
+        }
+
+        /// <summary>
+        /// Asynchroniosly requests data in database
+        /// </summary>
+        /// <typeparam name="TDbObject">Database mapped object type</typeparam>
+        /// <typeparam name="TResult">Result object type</typeparam>
+        /// <typeparam name="TJunction">Intermediate object type to represent result object and joined id</typeparam>
+        /// <typeparam name="TJoinedId">Parameter object type</typeparam>
+        /// <param name="query">Original database LINQ query</param>
+        /// <param name="filter">Function to difine filteration by the ids result objects</param>
+        /// <param name="select">Expression to extract result objects</param>
+        /// <param name="getJoinedId">Expression to extract joined id</param>
         /// <param name="ids">Collection of the id objects</param>
         /// <param name="batchSize">Maximum count of ids in one select</param>
         /// <param name="cancellationToken">Token to cancel the requests</param>
-        /// <returns></returns>
-        public static Task<IEnumerable<TResult>> BulkSelectAsync<TDbObject, TResult, TId>(
+        /// <returns>Dictionary of the result selection</returns>
+        public static Task<IDictionary<TJoinedId, TResult>> BulkSelectAsync<TDbObject, TResult, TJunction, TJoinedId>(
             this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            IReadOnlyCollection<TId> ids,
-            int batchSize = DefaultBatchSize,
-            CancellationToken cancellationToken = default)
-        {
-            return BulkSelectAsync(query, select, ids, batchSize, batch => batch.ToListAsync(cancellationToken));
-        }
-
-        /// <summary>
-        /// Asynchroniosly requests data in databse
-        /// </summary>
-        /// <typeparam name="TDbObject">Database mapped object type</typeparam>
-        /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TId">Parameter object type</typeparam>
-        /// <param name="query">Original database LINQ query</param>
-        /// <param name="select">Function to difine filteration by the ids and selection result objects</param>
-        /// <param name="ids">Collection of the id objects</param>
-        /// <param name="cancellationToken">Token to cancel the requests</param>
-        /// <returns></returns>
-        public static Task<IEnumerable<TResult>> BulkSelectAsync<TDbObject, TResult, TId>(
-            this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            IReadOnlyCollection<TId> ids,
-            CancellationToken cancellationToken = default)
-        {
-            return BulkSelectAsync(query, select, ids, DefaultBatchSize, cancellationToken);
-        }
-
-        /// <summary>
-        /// Synchroniosly requests data in databse
-        /// </summary>
-        /// <typeparam name="TDbObject">Database mapped object type</typeparam>
-        /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TId">Parameter object type</typeparam>
-        /// <param name="query">Original database LINQ query</param>
-        /// <param name="select">Function to difine filteration by the ids and selection result objects</param>
-        /// <param name="getId">Function to return id from result object</param>
-        /// <param name="ids">Collection of the id objects</param>
-        /// <param name="batchSize">Maximum count of ids in one select</param>
-        /// <returns></returns>
-        public static IDictionary<TId, TResult> BulkSelect<TDbObject, TResult, TId>(
-            this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            Func<TResult, TId> getId,
-            IReadOnlyCollection<TId> ids,
-            int batchSize = DefaultBatchSize)
-        {
-            return BulkSelect(query, select, ids, batchSize).ToDictionary(item => getId(item), item => item);
-        }
-
-        /// <summary>
-        /// Asynchroniosly requests data in databse
-        /// </summary>
-        /// <typeparam name="TDbObject">Database mapped object type</typeparam>
-        /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TId">Parameter object type</typeparam>
-        /// <param name="query">Original database LINQ query</param>
-        /// <param name="select">Function to difine filteration by the ids and selection result objects</param>
-        /// <param name="getId">Function to return id from result object</param>
-        /// <param name="ids">Collection of the id objects</param>
-        /// <param name="batchSize">Maximum count of ids in one select</param>
-        /// <param name="cancellationToken">Token to cancel the requests</param>
-        /// <returns></returns>
-        public static async Task<IDictionary<TId, TResult>> BulkSelectAsync<TDbObject, TResult, TId>(
-            this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            Func<TResult, TId> getId,
-            IReadOnlyCollection<TId> ids,
-            int batchSize = DefaultBatchSize,
-            CancellationToken cancellationToken = default)
-        {
-            var results = await BulkSelectAsync(query, select, ids, batchSize, batch => batch.ToListAsync(cancellationToken)).ConfigureAwait(false);
-
-            return results.ToDictionary(item => getId(item), item => item);
-        }
-
-        /// <summary>
-        /// Asynchroniosly requests data in databse
-        /// </summary>
-        /// <typeparam name="TDbObject">Database mapped object type</typeparam>
-        /// <typeparam name="TResult">Result object type</typeparam>
-        /// <typeparam name="TId">Parameter object type</typeparam>
-        /// <param name="query">Original database LINQ query</param>
-        /// <param name="select">Function to difine filteration by the ids and selection result objects</param>
-        /// <param name="getId">Function to return id from result object</param>
-        /// <param name="ids">Collection of the id objects</param>
-        /// <param name="cancellationToken">Token to cancel the requests</param>
-        /// <returns></returns>
-        public static Task<IDictionary<TId, TResult>> BulkSelectAsync<TDbObject, TResult, TId>(
-            this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            Func<TResult, TId> getId,
-            IReadOnlyCollection<TId> ids,
-            CancellationToken cancellationToken = default)
-        {
-            return BulkSelectAsync(query, select, getId, ids, DefaultBatchSize, cancellationToken);
-        }
-
-        private static async Task<IEnumerable<TResult>> BulkSelectAsync<TDbObject, TResult, TId>(
-            this IQueryable<TDbObject> query,
-            Func<IQueryable<TDbObject>, IReadOnlyCollection<TId>, IQueryable<TResult>> select,
-            IReadOnlyCollection<TId> ids,
+            Func<IQueryable<TDbObject>, IReadOnlyCollection<TJoinedId>, IQueryable<TJunction>> filter,
+            Expression<Func<TJunction, TResult>> select,
+            Expression<Func<TJunction, TJoinedId>> getJoinedId,
+            IReadOnlyCollection<TJoinedId> ids,
             int batchSize,
-            Func<IQueryable<TResult>, Task<List<TResult>>> execute)
+            CancellationToken cancellationToken = default)
+            where TResult : class
         {
-            var results = new List<List<TResult>>(capacity: ids.Count / batchSize + 1);
-
-            for (int offset = 0; offset < ids.Count; offset += batchSize)
-            {
-                var idsBatch = ids.Skip(offset).Take(batchSize).ToArray();
-
-                var batchQuery = select(query, idsBatch);
-
-                results.Add(await batchQuery.ToListAsync().ConfigureAwait(false));
-            }
-
-            return results.SelectMany(result => result);
+            return BulkSelectAsync(query, filter, select, getJoinedId, ids, DefaultBatchSize, cancellationToken);
         }
     }
 }

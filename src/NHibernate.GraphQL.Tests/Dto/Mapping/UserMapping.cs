@@ -30,6 +30,12 @@ namespace NHibernate.GraphQL.Tests.Dto.Mapping
                 map.Key(k => k.Column("UserId"));
                 map.Lazy(CollectionLazy.Lazy);
             }, map => map.ManyToMany(p => p.Column("RoleId")));
+
+            ManyToOne(x => x.Address, map =>
+            {
+                map.Column("AddressId");
+                map.Cascade(Cascade.All);
+            });
         }
     }
 }
