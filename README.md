@@ -43,19 +43,71 @@ var query = session.Query<User>()
                    .Where(user => Email.Contains("@gmail.com"));
 
 Connection<ExposedUser> connection = query.ToConnection(
-    user => user.Id,                        // Order by field
-    (userId, after) => userId > after,      // Condition for applying cursor filtration
-    user => new ExposedUser                 // Select statement
+    orderBy: user => user.Id,                        // Order by field
+    select: user => new ExposedUser                 // Select statement
     {
         Login = user.Login,
         Email = user.Email,
         FirstName = user.FirstName,
         Name = user.FirstName + user.LastName
     },
-    new Request
+    request: new Request
     {
         First = 2,       // Count of items in the current result (optional)
         After = "MQ=="   // Cursor value from previous response (optional)
+    });
+
+```
+
+#### Creating connection with sorting by a few fields
+
+Sometimes sorting by ID is not enough. For example, we may want to sort our users by `CreatedAt` field. But the field is not unique and few users can receive the same value for the field. In this case we cannot create unique cursor based only on `CreateAt` field. So we have to add some unique field to the sorting to receive guarantee that our sorting is always persist. ID is good value for this.
+
+We can use anonymous type to sort our objects by a few fields:
+
+``` cs
+var query = session.Query<User>()
+                   .Where(user => Email.Contains("@gmail.com"));
+
+Connection<ExposedUser> connection = query.ToConnection(
+    orderBy: user => { user.CreatedAt, user.Id },   // Order by fields (order of fields is important!)
+    select: user => new ExposedUser                 // Select statement
+    {
+        Login = user.Login,
+        Email = user.Email,
+        FirstName = user.FirstName,
+        Name = user.FirstName + user.LastName
+    },
+    request: new Request
+    {
+        First = 2,       // Count of items in the current result (optional)
+    });
+
+```
+
+### Define sorting direction
+
+OK, now we can sort users by creation time, but what if we want to do it in descending. We can use `SortBy.Descending` method for this purpose and separately set sorting direction for each field:
+
+``` cs
+var query = session.Query<User>()
+                   .Where(user => Email.Contains("@gmail.com"));
+
+Connection<ExposedUser> connection = query.ToConnection(
+    orderBy: user => {
+        SortBy.Descending(user.CreatedAt),  // Now `CreatedAt` sorted by descending
+        user.Id
+    },
+    select: user => new ExposedUser            // Select statement
+    {
+        Login = user.Login,
+        Email = user.Email,
+        FirstName = user.FirstName,
+        Name = user.FirstName + user.LastName
+    },
+    request: new Request
+    {
+        First = 2,       // Count of items in the current result (optional)
     });
 
 ```
