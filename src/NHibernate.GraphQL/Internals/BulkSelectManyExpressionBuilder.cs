@@ -11,10 +11,10 @@ namespace NHibernate.GraphQL
 {
     internal class BulkSelectManyExpressionBuilder<TDbObject, TResult, TJunction, TJuncedId, TResultId>
     {
-        private static readonly ParameterExpression junction = Expression.Parameter(typeof(TJunction), "junction");
-        private static readonly ParameterReplacer ParameterReplacer = new ParameterReplacer(junction);
+        private static readonly ParameterExpression Junction = Expression.Parameter(typeof(TJunction), "junction");
+        private static readonly ParameterReplacer ParameterReplacer = new ParameterReplacer(Junction);
 
-        private static readonly ConstructorInfo JunctionConstructor = typeof(Junction).GetConstructor(new[] {
+        private static readonly ConstructorInfo JunctionConstructor = typeof(JunctionIds).GetConstructor(new[] {
             typeof(TResultId),
             typeof(TJuncedId)
         }) ?? throw new NotSupportedException($"Required constructor for {nameof(Junction)} is not found.");
@@ -23,7 +23,7 @@ namespace NHibernate.GraphQL
             typeof(TResult)
         }) ?? throw new NotSupportedException($"Required constructor for {nameof(IdResultPair)} is not found.");
 
-        public IQueryable<Junction> GetJuncedIdsQuery(
+        public IQueryable<JunctionIds> GetJuncedIdsQuery(
             IQueryable<TJunction> query,
             Expression<Func<TJunction, TResultId>> getResultId,
             Expression<Func<TJunction, TJuncedId>> getJuncedId)
@@ -35,11 +35,11 @@ namespace NHibernate.GraphQL
             var selectExpression = Expression.Call(
                 typeof(Queryable),
                 nameof(Queryable.Select),
-                new System.Type[] { typeof(TJunction), typeof(Junction) },
+                new System.Type[] { typeof(TJunction), typeof(JunctionIds) },
                 query.Expression,
-                Expression.Lambda<Func<TJunction, Junction>>(selectBody, junction));
+                Expression.Lambda<Func<TJunction, JunctionIds>>(selectBody, Junction));
 
-            return query.Provider.CreateQuery<Junction>(selectExpression);
+            return query.Provider.CreateQuery<JunctionIds>(selectExpression);
         }
 
         public IQueryable<IdResultPair> GetSelectResultQuery(
@@ -56,7 +56,7 @@ namespace NHibernate.GraphQL
                 nameof(Queryable.Select),
                 new System.Type[] { typeof(TJunction), typeof(IdResultPair) },
                 query.Expression,
-                Expression.Lambda<Func<TJunction, IdResultPair>>(selectBody, junction));
+                Expression.Lambda<Func<TJunction, IdResultPair>>(selectBody, Junction));
 
             return query.Provider.CreateQuery<IdResultPair>(selectExpression);
         }
@@ -74,7 +74,7 @@ namespace NHibernate.GraphQL
             int batchCount = values.Count / batchSize + 1;
 
             var results = new List<IEnumerable<IdResultPair>>(capacity: batchCount);
-            var junctions = new List<IEnumerable<Junction>>(capacity: batchCount);
+            var junctions = new List<IEnumerable<JunctionIds>>(capacity: batchCount);
 
             for (int offset = 0; offset < values.Count; offset += batchSize)
             {
@@ -111,7 +111,7 @@ namespace NHibernate.GraphQL
             int batchCount = values.Count / batchSize + 1;
 
             var results = new List<IEnumerable<IdResultPair>>(capacity: batchCount);
-            var junctions = new List<IEnumerable<Junction>>(capacity: batchCount);
+            var junctions = new List<IEnumerable<JunctionIds>>(capacity: batchCount);
 
             for (int offset = 0; offset < values.Count; offset += batchSize)
             {
@@ -173,9 +173,9 @@ namespace NHibernate.GraphQL
             public TResult Item { get; }
         }
 
-        internal struct Junction
+        internal struct JunctionIds
         {
-            public Junction(TResultId resultId, TJuncedId junctionId)
+            public JunctionIds(TResultId resultId, TJuncedId junctionId)
             {
                 ResultId = resultId;
                 JunctionId = junctionId;
@@ -190,7 +190,7 @@ namespace NHibernate.GraphQL
         {
             public IReadOnlyCollection<IdResultPair> Results { get; set; }
 
-            public IEnumerable<Junction> Junctions { get; set; }
+            public IEnumerable<JunctionIds> Junctions { get; set; }
         }
     }
 }

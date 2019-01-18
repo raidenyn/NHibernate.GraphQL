@@ -11,8 +11,8 @@ namespace NHibernate.GraphQL
 {
     internal class BulkSelectExpressionBuilder<TDbObject, TResult, TJunction, TJoinedId>
     {
-        private static readonly ParameterExpression junction = Expression.Parameter(typeof(TJunction), "junction");
-        private static readonly ParameterReplacer ParameterReplacer = new ParameterReplacer(junction);
+        private static readonly ParameterExpression Junction = Expression.Parameter(typeof(TJunction), "junction");
+        private static readonly ParameterReplacer ParameterReplacer = new ParameterReplacer(Junction);
 
         private static readonly ConstructorInfo IdResultPairConstructor = typeof(IdResultPair).GetConstructor(new[] {
             typeof(TJoinedId),
@@ -33,7 +33,7 @@ namespace NHibernate.GraphQL
                 nameof(Queryable.Select),
                 new System.Type[] { typeof(TJunction), typeof(IdResultPair) },
                 query.Expression,
-                Expression.Lambda<Func<TJunction, IdResultPair>>(selectBody, junction));
+                Expression.Lambda<Func<TJunction, IdResultPair>>(selectBody, Junction));
 
             return query.Provider.CreateQuery<IdResultPair>(selectExpression);
         }

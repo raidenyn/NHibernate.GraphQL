@@ -10,18 +10,18 @@ namespace NHibernate.GraphQL.Tests
 {
     public class DatabaseFixture
     {
-        private static ISessionFactory _sessionFactory;
-        private static Configuration _configuration;
-        private static SchemaExport _schemaExport;
+        private readonly static ISessionFactory SessionFactory;
+        private readonly static Configuration Configuration;
+        private readonly static SchemaExport SchemaExport;
 
         protected ISession Session { get; private set; }
 
         static DatabaseFixture()
         {
-            _configuration = new Configuration();
-            SetMappings(_configuration);
+            Configuration = new Configuration();
+            SetMappings(Configuration);
 
-            _configuration.DataBaseIntegration(x =>
+            Configuration.DataBaseIntegration(x =>
             {
                 x.Dialect<SQLiteDialect>();
                 x.ConnectionString = "Data Source=:memory:;Version=3;New=True;";
@@ -32,16 +32,16 @@ namespace NHibernate.GraphQL.Tests
                 x.Driver<Driver.SQLite20Driver>();
             });
 
-            _sessionFactory = _configuration.BuildSessionFactory();
+            SessionFactory = Configuration.BuildSessionFactory();
 
-            _schemaExport = new SchemaExport(_configuration);
+            SchemaExport = new SchemaExport(Configuration);
         }
 
         [SetUp]
         public void SetUp()
         {
             Session = CreateSession();
-            _schemaExport.Execute(
+            SchemaExport.Execute(
                 useStdOut: true,
                 execute: true,
                 justDrop: false,
@@ -58,7 +58,7 @@ namespace NHibernate.GraphQL.Tests
 
         private ISession CreateSession()
         {
-            ISession openSession = _sessionFactory.OpenSession();
+            ISession openSession = SessionFactory.OpenSession();
             DbConnection connection = openSession.Connection;
             return openSession;
         }

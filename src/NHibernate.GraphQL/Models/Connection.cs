@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace NHibernate.GraphQL
 {
@@ -11,7 +12,12 @@ namespace NHibernate.GraphQL
         /// <summary>
         /// Items and cursor values 
         /// </summary>
-        public List<Edge<TNode>> Edges { get; set; }
+        public IReadOnlyList<Edge<TNode>> Edges { get; set; }
+
+        /// <summary>
+        /// Enumeration of nodes from <see cref="Edges"/>
+        /// </summary>
+        public IEnumerable<TNode> Items => Edges.Select(edge => edge.Node);
 
         /// <summary>
         /// Additional information about current page

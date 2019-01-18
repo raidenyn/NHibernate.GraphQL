@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
 using NHibernate.GraphQL.Tests.Dto;
 using NHibernate.GraphQL.Tests.TestData;
 using NUnit.Framework;
@@ -213,6 +214,89 @@ namespace NHibernate.GraphQL.Tests
             Assert.AreEqual(3, connection.Edges.Count, "Count of edges is wrong");
             Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
             Assert.IsFalse(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public async Task ShouldPageQueryWithSimpleOrderWithAutofilterAsync()
+        {
+            var connection = await GetUserQuery().ToConnectionAsync(
+                orderBy: user => user.Id,
+                select: user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                request: new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(1)
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public async Task ShouldPageQueryWithComplexOrderWithAutofilterAsync()
+        {
+            var connection = await GetUserQuery().ToConnectionAsync(
+                orderBy: user => new { user.CreatedAt, user.Id },
+                select: user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                request: new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(new
+                    {
+                        Id = 1,
+                        CreatedAt = new DateTime(2019, 1, 2)
+                    }),
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
+        public async Task ShouldPageQueryWithComplexDescendingOrderWithAutofilterAsync()
+        {
+            var connection = await GetUserQuery().ToConnectionAsync(
+                orderBy: user => new {
+                    CreatedAt = SortBy.Descending(user.CreatedAt),
+                    user.Id
+                },
+                select: user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                request: new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(new
+                    {
+                        Id = 1,
+                        CreatedAt = new DateTime(2019, 1, 2)
+                    }),
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
             Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
         }
     }

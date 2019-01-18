@@ -6,7 +6,7 @@ using System.Reflection;
 
 namespace NHibernate.GraphQL
 {
-    internal class ConnectionExpressionBuilder<TResult, TDbObject, TOrder>
+    internal partial class ConnectionExpressionBuilder<TResult, TDbObject, TOrder>
     {
         private static readonly MemberInfo OrderMember = typeof(OrderedItem).GetMember(nameof(OrderedItem.Order))[0];
         private static readonly MemberInfo ValueMember = typeof(OrderedItem).GetMember(nameof(OrderedItem.Value))[0];
@@ -35,9 +35,16 @@ namespace NHibernate.GraphQL
 
             Expression queryExpression = query.Expression;
 
+            OrderingFields orderingFields = OrderRequestBuilder.GetOrdering(orderBy);
+
             if (_cursorFormatter.HasValue(after))
             {
                 TOrder order = _cursorFormatter.ParseAs<TOrder>(after);
+
+                Expression filterBody =
+                    filter != null
+                    ? FilterBuilder.RemapFilter(orderedItemInit, filter, order)
+                    : FilterBuilder.BuildAutoFilter(orderedItemInit, orderingFields, order);
 
                 // add where filtration
                 queryExpression = Expression.Call(
@@ -45,12 +52,11 @@ namespace NHibernate.GraphQL
                     nameof(Queryable.Where),
                     new System.Type[] { typeof(TDbObject) },
                     queryExpression,
-                    Expression.Lambda<Func<TDbObject, bool>>(RemapFilter(orderedItemInit, OrderMember, filter, order), DbItem)
-                    );
+                    Expression.Lambda<Func<TDbObject, bool>>(filterBody, DbItem));
             }
 
             // add passed order
-            queryExpression = OrderRequestBuilder.BuildOrderExpression(queryExpression, orderBy); ;
+            queryExpression = OrderRequestBuilder.BuildOrderExpression(queryExpression, orderingFields);
 
             // extend selection and add order fields
             queryExpression = Expression.Call(
@@ -84,21 +90,6 @@ namespace NHibernate.GraphQL
             return GetEdgesList(result, size.Value);
         }
 
-        private static Expression RemapFilter(
-            Expression mappingExpression,
-            MemberInfo mainMember,
-            Expression<Func<TOrder, TOrder, bool>> filter,
-            TOrder value)
-        {
-            var expression = new RemapParametersVisitor(
-                filter.Parameters[0],
-                mainMember,
-                mappingExpression).RemapParmeters(filter.Body);
-            return new ParameterVisitor(
-                filter.Parameters[1],
-                Expression.Constant(value)).ChangeParameter(expression);
-        }
-
         private EdgesList<TResult> GetEdgesList(
             IEnumerable<OrderedItem> result, int size)
         {
@@ -130,67 +121,6 @@ namespace NHibernate.GraphQL
             public TResult Value { get; set; }
 
             public TOrder Order { get; set; }
-        }
-
-        private static class OrderRequestBuilder
-        {
-            public static Expression BuildOrderExpression(
-                Expression queryExpression,
-                Expression<Func<TDbObject, TOrder>> orderBy)
-            {
-                var mapping = (from item in new OrderingMappingVisitor(orderBy).GetMappingList()
-                               where item.Member.DeclaringType == typeof(TOrder)
-                               let property = item.Member as PropertyInfo
-                               select (item.Expression, property.PropertyType)).ToArray();
-
-                if (mapping.Length == 0)
-                {
-                    return GetOrderBy(queryExpression, typeof(TOrder), orderBy.Body);
-                }
-
-                queryExpression = GetOrderBy(queryExpression, mapping[0].PropertyType, mapping[0].Expression);
-
-                foreach (var item in mapping.Skip(1))
-                {
-                    queryExpression = GetThenBy(queryExpression, item.PropertyType, item.Expression);
-                }
-
-                return queryExpression;
-            }
-
-            private static Expression GetOrderBy(
-                Expression queryExpression,
-                System.Type itemType,
-                Expression expression)
-            {
-                var sortDirection = new SortDirectionVisitor(expression);
-
-                string methodName = sortDirection.IsDescending ? nameof(Queryable.OrderByDescending) : nameof(Queryable.OrderBy);
-
-                return Expression.Call(
-                    typeof(Queryable),
-                    methodName,
-                    new System.Type[] { typeof(TDbObject), itemType },
-                    queryExpression,
-                    Expression.Lambda(ParameterReplacer.RepalceParameter(sortDirection.Expression), DbItem));
-            }
-
-            private static Expression GetThenBy(
-                Expression queryExpression,
-                System.Type itemType,
-                Expression expression)
-            {
-                var sortDirection = new SortDirectionVisitor(expression);
-
-                string methodName = sortDirection.IsDescending ? nameof(Queryable.ThenByDescending) : nameof(Queryable.ThenBy);
-
-                return Expression.Call(
-                    typeof(Queryable),
-                    methodName,
-                    new System.Type[] { typeof(TDbObject), itemType },
-                    queryExpression,
-                    Expression.Lambda(ParameterReplacer.RepalceParameter(sortDirection.Expression), DbItem));
-            }
         }
     }
 }
