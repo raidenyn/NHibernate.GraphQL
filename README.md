@@ -1,6 +1,9 @@
 # Tools for GraphQL API implementation based on NHibernate
 
-## Select data optimization
+## Main methods
+
+### Select data optimization
+
 GraphQL allows optimize amount of data sending between server and client sides, but it would be also great to optimize traffic between application and database.
 
 Method `OptimizeQuery` keeps only explicitly requested fields in LINQ query:
@@ -29,7 +32,8 @@ var result = query.ToList();
 > Be aware that the technic decreases traffic between database and application,
 > but increase sql query variety. So it may impact to database query plan cash size.
 
-## Creating Connections
+### Creating Connections
+
 GraphQL [suggests](https://graphql.org/learn/pagination/) to use Relay style pagination based on cursors technic.
 
 `ToConnection` and `ToConnectionAsync` methods allow create Connection objects easily based on your LINQ query.
@@ -56,16 +60,18 @@ Connection<ExposedUser> connection = query.ToConnection(
 
 ```
 
-## Selecting objects from aggregated ids with Many To One relationship
+### Selecting objects from aggregated ids with Many To One relationship
+
 DataLoader is nice way to optimize count of select queries to your database and it solves N+1 select problem. But sometimes amount of requested data might be too large to pass it to you database in one SQL request as most of DB has limitation for its size.
 
 Methods `BulkSelect` and `BulkSelectAsync` allow to request data from database and put result to `IDictionary`:
+
 ``` cs
 
 // income parameters from DataLoader
 IReadOnlyCollection<long> userIds = new [] { 1, 2, 3, 4, 5 };
 
-IDictionary<int, ExposedUserAddress> dictionary = 
+IDictionary<int, ExposedUserAddress> dictionary =
   session.Query<UserAddress>().BulkSelect(
     // filtering query to retrieve a junction of address and user
     filter: (addresses, userIdsPart) =>
@@ -79,8 +85,8 @@ IDictionary<int, ExposedUserAddress> dictionary =
         {
             Zip = item.address.Zip,
             Street = item.address.Street,
-            Home = item.address.Home,
-            Text = item.address.Street + item.address.Home + item.address.Zip
+            House = item.address.House,
+            Text = item.address.Street + " " + item.address.House + ", " + item.address.Zip
         }
 
     // expression to extract id value from the junction
@@ -94,8 +100,10 @@ IDictionary<int, ExposedUserAddress> dictionary =
 
 ```
 
-## Selecting objects from aggregated ids with Many To Many relationship
+### Selecting objects from aggregated ids with Many To Many relationship
+
 Sometimes we need to select aggregated objects with many-to-many relationship. Methods `BulkSelectMany` and `BulkSelectManyAsync` help you with it and create `ILookup` result:
+
 ``` cs
 
 // income parameters from DataLoader
@@ -131,8 +139,11 @@ ILookup<int, ExposedUserRole> lookup =
 
 ```
 
-# Roadmap
+## Roadmap
+
+- [ ] Add how it works explanations and documentation
+- [ ] Create more test cases
 - [ ] Support bidirectional connections
-- [ ] Creates more test cases
 - [ ] Add cache for expression generation
-- [ ] Add how it works explanations
+- [ ] Support splitting by id strategy in bulk selection
+- [ ] Support connections with bulk selection
