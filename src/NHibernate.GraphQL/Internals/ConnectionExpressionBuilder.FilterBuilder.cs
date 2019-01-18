@@ -23,7 +23,7 @@ namespace NHibernate.GraphQL
                     filters.Add(new FilterValue
                     {
                         Expression = field.Expression,
-                        Value = Expression.Constant(GetValue(after, field)),
+                        Value = Expression.Constant(value),
                         IsLower = field.IsDescending,
                     });
                 }
