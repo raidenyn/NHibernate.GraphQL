@@ -9,7 +9,7 @@
     <LangVersion>latest</LangVersion>
     <Version>0.0.1</Version>
     <Authors>Yuriy Nagaev</Authors>
-    <Description>Tooles for creating GraphQL API with NHibernate datasource</Description>
+    <Description>Tools for creating GraphQL API with NHibernate datasource</Description>
     <Copyright>Yuriy Nagaev</Copyright>
     <PackageLicense>https://github.com/raidenyn/NHibernate.GraphQL/blob/master/LICENSE</PackageLicense>
     <PackageProjectUrl>https://github.com/raidenyn/NHibernate.GraphQL</PackageProjectUrl>
