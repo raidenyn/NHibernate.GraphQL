@@ -177,7 +177,7 @@ ILookup<int, ExposedUserRole> lookup =
         }
 
     // expression to extract id value from the junction
-    getResultId: item => item.role.Id,
+    getResultId: junction => junction.role.Id,
 
     // expression to extract id value of joined object from the junction
     getJoinedId: junction => junction.user.Id,
