@@ -76,7 +76,7 @@ namespace NHibernate.GraphQL
             Expression<Func<TJunction, TResult>> select,
             Expression<Func<TJunction, TJoinedId>> getJoinedId,
             IReadOnlyCollection<TJoinedId> ids,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
             where TResult : class
         {
             return BulkSelectAsync(query, filter, select, getJoinedId, ids, DefaultBatchSize, cancellationToken);
@@ -103,7 +103,7 @@ namespace NHibernate.GraphQL
             Expression<Func<TJunction, TResult>> select,
             Expression<Func<TJunction, TJoinedId>> getJoinedId,
             IReadOnlyCollection<TJoinedId> ids,
-            int batchSize = DefaultBatchSize,
+            int batchSize,
             CancellationToken cancellationToken = default)
             where TResult : class
         {

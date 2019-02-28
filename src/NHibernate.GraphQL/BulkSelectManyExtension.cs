@@ -84,7 +84,7 @@ namespace NHibernate.GraphQL
             Expression<Func<TJunction, TResultId>> getResultId,
             Expression<Func<TJunction, TJuncedId>> getJuncedId,
             IReadOnlyCollection<TJuncedId> ids,
-            int batchSize = DefaultBatchSize,
+            int batchSize,
             CancellationToken cancellationToken = default)
             where TResult : class
         {
