@@ -1,11 +1,16 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.168
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28621.142
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NHibernate.GraphQL", "NHibernate.GraphQL\NHibernate.GraphQL.csproj", "{60E334E7-60B7-442F-B738-6503FE6A9869}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NHibernate.GraphQL.Tests", "NHibernate.GraphQL.Tests\NHibernate.GraphQL.Tests.csproj", "{EECFEBFD-F45B-4F08-A7FB-6B5376D4416B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NHibernate.GraphQL.Tests", "NHibernate.GraphQL.Tests\NHibernate.GraphQL.Tests.csproj", "{EECFEBFD-F45B-4F08-A7FB-6B5376D4416B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C91E4473-5936-4C07-9CBE-F1641ECFB5E2}"
+	ProjectSection(SolutionItems) = preProject
+		..\README.md = ..\README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
