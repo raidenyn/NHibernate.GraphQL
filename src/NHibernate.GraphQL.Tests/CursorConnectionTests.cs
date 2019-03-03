@@ -270,6 +270,34 @@ namespace NHibernate.GraphQL.Tests
         }
 
         [Test]
+        public async Task ShouldPageQueryWithStringComplexOrderWithAutofilterAsync()
+        {
+            var connection = await GetUserQuery().ToConnectionAsync(
+                orderBy: user => new { user.FirstName, user.Id },
+                select: user => new ExposedUser
+                {
+                    Login = user.Login,
+                    Email = user.Email,
+                    FirstName = user.FirstName,
+                    Name = user.FirstName + user.LastName
+                },
+                request: new Request
+                {
+                    First = 2,
+                    After = ConnectionQuerySettings.Default.CursorFormatter.Format(new
+                    {
+                        Id = 1,
+                        FirstName = "Test"
+                    }),
+                });
+
+            Assert.AreEqual(2, connection.Edges.Count, "Count of edges is wrong");
+            Assert.AreEqual(6, connection.TotalCount, "TotalCount is wrong");
+            Assert.IsTrue(connection.PageInfo.HasNextPage, "HasNextPage is wrong");
+            Assert.IsTrue(connection.PageInfo.HasPreviousPage, "HasPreviousPage is wrong");
+        }
+
+        [Test]
         public async Task ShouldPageQueryWithComplexDescendingOrderWithAutofilterAsync()
         {
             var connection = await GetUserQuery().ToConnectionAsync(

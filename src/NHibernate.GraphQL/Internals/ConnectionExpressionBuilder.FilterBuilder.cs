@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace NHibernate.GraphQL
 {
     internal partial class ConnectionExpressionBuilder<TResult, TDbObject, TOrder>
     {
+        private static readonly MethodInfo StringCompareToMethod
+            = typeof(string).GetMethod(nameof(String.CompareTo), new [] { typeof(string) });
+
         private static class FilterBuilder
         {
             public static Expression BuildAutoFilter(
@@ -43,9 +46,7 @@ namespace NHibernate.GraphQL
                         currentFilter = currentFilter != null ? Expression.AndAlso(currentFilter, equal): equal;
                     }
 
-                    Expression compare = currentValue.IsLower
-                        ? Expression.LessThan(currentValue.Expression, currentValue.Value)
-                        : Expression.GreaterThan(currentValue.Expression, currentValue.Value);
+                    Expression compare = GreateCompareExpression(currentValue);
                     currentFilter = currentFilter != null ? Expression.AndAlso(currentFilter, compare) : compare;
                     filter = filter != null ? Expression.OrElse(filter, currentFilter) : currentFilter;
                 }
@@ -70,6 +71,25 @@ namespace NHibernate.GraphQL
             private static object GetValue(TOrder after, OrderingField field)
             {
                 return field.Property.GetValue(after);
+            }
+
+            private static Expression GreateCompareExpression(FilterValue currentValue)
+            {
+                if (currentValue.Value.Type == typeof(string))
+                {
+                    var comparison = Expression.Call(
+                        currentValue.Expression,
+                        StringCompareToMethod,
+                        currentValue.Value);
+
+                    return currentValue.IsLower
+                        ? Expression.LessThan(comparison, Expression.Constant(0))
+                        : Expression.GreaterThan(comparison, Expression.Constant(0));
+                }
+
+                return currentValue.IsLower
+                        ? Expression.LessThan(currentValue.Expression, currentValue.Value)
+                        : Expression.GreaterThan(currentValue.Expression, currentValue.Value);
             }
 
             private struct FilterValue
